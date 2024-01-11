@@ -8,13 +8,15 @@ import matplotlib.pyplot as plt
 from solver import solve_PDE
 
 # let N be the sample size
-dest = "results/run4/"
+dest = "results/run7/"
 N = 128
 h = 1 / N
 dt = 0.01
 W0_vector = [(10 ** 6, i * 10 ** 6) for i in range(20, 121, 20)]
-O0_vector = [0.042 * (i + 1) for i in range(0, 5)]
 Oam_vector = [0.042 * (i + 1) for i in range(0, 5)]
+
+W0_vector = [(23 ** 6, 120 *10** 6)]
+Oam_vector = [0.21]
 #W0_vector = [(10 ** 6, 90 *10** 6)]
 #O0_vector = [0.042 * 5]
 #W_low, W_high = 1 * 10 ** (6), 20 * 10 ** (6)
@@ -58,6 +60,11 @@ for (W_low, W_high) in W0_vector:
         print("solving for (W_high(0), O(0)): ", W_high, Oam)
 
         W = l * l / (N * N) * (np.random.uniform(W_low, W_high, (N, N)) + np.random.normal(0, 1 * 10 ** (6), (N, N)))
+
+        #initialize W as a matrix with 48000 worms and additional noise
+        W = 1 / (N * N) * (48000 * np.ones((N, N)) + np.random.normal(0, 1 * 10 ** (3), (N, N)))
+        n_worms = np.sum(W)
+        print("initial number of worms: ", n_worms)
         #O = O0 * np.ones((N, N)) + np.random.normal(0, 1 * 10 ** (-2), (N, N))
         O = Oam * np.ones((N, N))
         # save initial values of W and O
@@ -77,7 +84,7 @@ for (W_low, W_high) in W0_vector:
 
         # check that it doesn't exceed 10 mins
         t_start = time.time()
-        W, O, timestep = solve_PDE(W, O, a, b, c, tau, D0, f, kc, Oam, D, L, dt, t_start)
+        W, O, timestep = solve_PDE(W, O, a, b, c, tau, D0, f, kc, Oam, D, L, dt, t_start, 600)
 
         # plot W in a 2D grid
         im = plt.imshow(W, cmap='hot', interpolation='nearest', animated=True)
