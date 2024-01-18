@@ -8,17 +8,22 @@ import matplotlib.pyplot as plt
 from solver import solve_PDE
 
 # let N be the sample size
-dest = "results/run7/"
+dest = "results/run32-dt_001_tmax_2000/"
+#check if folder exists, if not create it
+import os
+if not os.path.exists(dest):
+    os.makedirs(dest)
 N = 128
 h = 1 / N
 dt = 0.01
+
 W0_vector = [(10 ** 6, i * 10 ** 6) for i in range(20, 121, 20)]
 Oam_vector = [0.042 * (i + 1) for i in range(0, 5)]
 
-W0_vector = [(23 ** 6, 120 *10** 6)]
-Oam_vector = [0.21]
-#W0_vector = [(10 ** 6, 90 *10** 6)]
-#O0_vector = [0.042 * 5]
+#W0_vector = [(23 ** 6, 120 *10** 6)]
+#Oam_vector = [0.21]
+W0_vector = [(10*10 ** 6, 120 *10** 6)]
+Oam_vector = [0.042 * 5]
 #W_low, W_high = 1 * 10 ** (6), 20 * 10 ** (6)
 # let D be the matrix that represents the divergence operator
 D = np.zeros((N, N))
@@ -52,7 +57,7 @@ kc = 7.3 * 10 ** (-10)
 # let l be the size of the grid in cm
 l = 2 * 10 ** (-2)
 
-# let V be the vector of the velocity of worms, where V[i] is the velocity at the i-th point of the grid
+n_worms = 48000
 
 # initialize W as a matrix with uniform distribution and additional nois
 for (W_low, W_high) in W0_vector:
@@ -62,7 +67,7 @@ for (W_low, W_high) in W0_vector:
         W = l * l / (N * N) * (np.random.uniform(W_low, W_high, (N, N)) + np.random.normal(0, 1 * 10 ** (6), (N, N)))
 
         #initialize W as a matrix with 48000 worms and additional noise
-        W = 1 / (N * N) * (48000 * np.ones((N, N)) + np.random.normal(0, 1 * 10 ** (3), (N, N)))
+        W = 1 / (N * N) * (n_worms * np.ones((N, N)) + np.random.uniform(-n_worms,n_worms,(N, N)))
         n_worms = np.sum(W)
         print("initial number of worms: ", n_worms)
         #O = O0 * np.ones((N, N)) + np.random.normal(0, 1 * 10 ** (-2), (N, N))
@@ -71,7 +76,7 @@ for (W_low, W_high) in W0_vector:
         np.save(dest + "W0_W0_" + str(round(W_high, 1)) + "O0_" + str(Oam)[2:5], W)
         np.save(dest + "O0_W0_" + str(round(W_high, 1)) + "O0_" + str(Oam)[2:5], O)
 
-        im = plt.imshow(W, cmap='hot', interpolation='nearest', animated=True)
+        im = plt.imshow(W, cmap='hot', interpolation='nearest', animated=True, vmin=0)
         cbar = plt.colorbar(im)
         plt.savefig(dest + "W0_W0_" + str(round(W_high, 1)) + "O0_" + str(Oam)[2:5] + ".png")
         cbar.set_label('Worm density at time 0')
@@ -84,10 +89,10 @@ for (W_low, W_high) in W0_vector:
 
         # check that it doesn't exceed 10 mins
         t_start = time.time()
-        W, O, timestep = solve_PDE(W, O, a, b, c, tau, D0, f, kc, Oam, D, L, dt, t_start, 600)
+        W, O, timestep = solve_PDE(W, O, a, b, c, tau, D0, f, kc, Oam, D, L, dt, t_start, 2000)
 
         # plot W in a 2D grid
-        im = plt.imshow(W, cmap='hot', interpolation='nearest', animated=True)
+        im = plt.imshow(W, cmap='hot', interpolation='nearest', animated=True, vmin=0)
         cbar = plt.colorbar(im)
         cbar.set_label('Worm density at time 10 mins')
         plt.savefig(dest + "Wtmax_W0_" + str(round(W_high, 1)) + "O0_" + str(Oam)[2:5] + ".png")
