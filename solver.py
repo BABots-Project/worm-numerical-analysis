@@ -55,45 +55,94 @@ class Animator:
         animation.save('animation.gif', writer='imagemagick', fps=60)
         plt.show()
 
-def solve_PDE(W, O, a, b, c, tau, D0, f, kc, Om, D, L, dt, t_start, t_end=600):
-    timestep= 0
-    #animator = Animator(W, O, a, b, c, tau, D0, f, kc, Om, D, L, dt, t_start, t_end)
-    #animator.animate()
-    #return W, O, timestep
+
+
+
+def solve_PDE_attractant(U,rho,D,L,dt,t_max=600):
+    gamma = 0.01
+    s = 0.01
+    beta = 1.111 * 10**(-5)
+    sigma = 5.555 * 10 ** (-6)
+    scale = 2
+    rho_max = 28000
+    cushion = 2000
+    alfa = 1500
+    d=1*10**(-6)
+    t_start = time.time()
+    timestep = 0
     while True:
-        Wold = W
-        Oold = O
-        dV = 2 * a * O + b
-        ddV = 2 * a
-        V = a * O ** 2 + b * O + c
-        Dw = V ** 2 / (2 * tau)
-        beta = V / (2 * tau) * dV
-        nablaW = np.dot(D, W) + np.dot(W, D)
-        nablaO = np.dot(D, O) + np.dot(O, D)
-        laplacianO = np.dot(L, O) + np.dot(O, L)
-        dW_term = Dw * nablaW + beta * W * nablaO
-        #dW = np.dot(D, Dw*nablaW) + np.dot(Dw*nablaW, D) + np.dot(D, beta*W*nablaO) + np.dot(beta*W*nablaO, D)
-        dW = V/tau*dV*(np.dot(D, O)+np.dot(O,D)) + Dw*(np.dot(L,W)+np.dot(W,L)) + 1/(2*tau)*((dV**2*(np.dot(D,O)+np.dot(O,D)))+V*ddV*(np.dot(D,O)+np.dot(O,D)))*W*(np.dot(D,O)+np.dot(O,D)) + beta*(np.dot(D,W)+np.dot(W,D))*(np.dot(D,O)+np.dot(O,D)) + beta*W*(np.dot(L,O)+np.dot(O,L))
-        dO = D0 * laplacianO + f * (Om - O) - kc * W
+        nablarho = np.dot(D,rho)+np.dot(rho,D)
+        Vrho = sigma*scale*(1+np.tanh((rho-rho_max)/cushion))
 
-        W += dW * dt
-        O += dO + dt
+        #check if alfa+U is nan
+        if np.isnan(alfa+U).any():
+            break
+        Vu = -beta*np.log(alfa+U)
+        V = Vu + Vrho
+        nablaV = np.dot(D,V)+np.dot(V,D)
+        laplacianU = np.dot(L,U)+np.dot(U,L)
+        laplacianV = np.dot(L,V)+np.dot(V,L)
+        laplacianrho = np.dot(L,rho)+np.dot(rho,L)
+        dU = -gamma*U+d*laplacianU+s*rho
+        drho = nablarho*nablaV+rho*laplacianV+sigma*laplacianrho
 
+        U += dU*dt
+        rho += drho*dt
 
         t = time.time()
-        if t_start + t_end < t:
+        if t_start + t_max < t:
             break
-        if timestep>1 and (np.abs(dW).max() < 10 ** (-14) or np.abs(dO).max()< 10 ** (-14)):
-            print("Converged")
-            print(np.abs((W - Wold)).max())
-            print(np.abs((O - Oold)).max())
-            print("non zero dW values: "+str(dW[dW!=0]))
-            #break
-        if (W * beta * kc).all() > (f * Dw).all():
-            print("Swarming")
-            break
-        #print("dW max: " + str(dW.max()))
-        #print("dO max: " + str(dO.max()))
-        #print("timestep: " + str(timestep))
         timestep += 1
-    return W, O, timestep
+    print("timestep: "+str(timestep))
+    return U,rho
+
+
+dest = "results/run43_diffusion/"
+#check if folder exists, if not create it
+import os
+if not os.path.exists(dest):
+    os.makedirs(dest)
+N = 128
+h = 1 / N
+dt = 0.01
+l=10**(-2)
+# let D be the matrix that represents the divergence operator
+D = np.zeros((N, N))
+# we use the central difference approximation for the divergence operator, with periodic boundary conditions
+for i in range(N):
+    D[i, (i + 1) % N] = 1 / (2*h)
+    D[i, (i - 1) % N] = -1 / (2*h)
+
+# let L be the matrix that represents the laplacian operator
+L = np.zeros((N, N))
+# we use the central difference approximation for the laplacian operator, with periodic boundary conditions
+for i in range(N):
+    L[i, i] = -2 / (2*h) ** 2
+    L[i, (i + 1) % N] = 1 / (2*h) ** 2
+    L[i, (i - 1) % N] = 1 / (2*h) ** 2
+
+rho = (np.random.uniform(0, 9000, (N,N)) + np.random.normal(0, 90, (N, N)))/(N*N)
+U = np.random.normal(0,1,(N,N))
+plt.imshow(U, cmap='hot', interpolation='nearest', animated=True, vmin=0)
+cbar = plt.colorbar()
+cbar.set_label('U(0)')
+plt.show()
+plt.imshow(rho, cmap='hot', interpolation='nearest', animated=True, vmin=0)
+cbar = plt.colorbar()
+cbar.set_label('rho(0)')
+plt.show()
+#save matrices
+np.save(dest + "U0", U)
+np.save(dest + "rho0", rho)
+rho, U = solve_PDE_attractant(U,rho,D,L,dt)
+plt.imshow(U, cmap='hot', interpolation='nearest', animated=True, vmin=0)
+cbar = plt.colorbar()
+cbar.set_label('U(tmax)')
+plt.show()
+plt.imshow(rho, cmap='hot', interpolation='nearest', animated=True, vmin=0)
+cbar = plt.colorbar()
+cbar.set_label('rho(tmax)')
+plt.show()
+#save matrices
+np.save(dest + "Utmax", U)
+np.save(dest + "rhotmax", rho)

@@ -33,17 +33,18 @@ def get_entropy(W):
     Wnotzero = W[W!=0]
     return -np.sum(Wnotzero * np.log2(Wnotzero))
 
-target = "results/run32-dt_001_tmax_2000/"
-W0_vector = [(120 *10** 6, 120* 10 ** 6)]
+target = "results/run52_AA/"
+W0_vector = [(120 *10** 4, 90* 10 ** 2)]
 O0_vector = [0.21001]
 for (W_low, W_high) in W0_vector:
     for O0 in O0_vector:
         print("(W_high(0), O(0)): ", W_high, O0)
         W_0 = np.load(target + "W0_W0_" + str(round(W_high, 1)) + "O0_" + str(O0)[2:5]+".npy")
         W_tmax = np.load(target + "Wtmax_W0_" + str(round(W_high, 1)) + "O0_" + str(O0)[2:5]+".npy")
-        im = plt.imshow(W_tmax, cmap='hot', interpolation='nearest', animated=True, vmin=0)
+        im = plt.imshow(W_tmax, cmap='hot_r', interpolation='nearest', animated=True, vmin=0)
         cbar = plt.colorbar(im)
         cbar.set_label('Worm density at time tmax')
+        plt.savefig(target + "Wtmax_W0_" + str(round(W_high, 1)) + "O0_" + str(O0)[2:5] + ".pdf", format='pdf')
         plt.show()
         normalized_W_0 = W_0/np.max(W_0)
         normalized_W_tmax = W_tmax/np.max(W_tmax)
@@ -56,6 +57,7 @@ for (W_low, W_high) in W0_vector:
         print("entropy(W0): "+str(get_entropy(normalized_W_0)))
         print("entropy(W_tmax): "+str(get_entropy(normalized_W_tmax)))
         print("oxy at tmax: "+str(np.min(O_tmax)))
+        print("initial number of worms: "+str(np.sum(W_0)))
         print("number of worms: "+str(np.sum(W_tmax)))
 
 target = "simulation_results/"
