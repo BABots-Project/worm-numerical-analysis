@@ -25,6 +25,24 @@ def get_clusters_size_and_position(W, threshold):
 
     return clusters_size, clusters
 
+def check_instability_criterion(W, O, a, b, c, tau, f, kc, Oam):
+    V = a * O ** 2 + b * O + c
+    dV = 2 * a * O + b
+    # verify instability criterion for all points: W beta kc > f Dw
+    beta = 1 / (2 * tau) * V * (2 * a * O + b)
+    Dw = 1 / (2 * tau) * V ** 2
+    print("W beta kc: ", W * beta * kc)
+    print("f Dw: ", f * Dw)
+    print("instability criterion: ", (W * beta * kc > f * Dw).all())
+    print("O: ", O)
+    O_eq = Oam - kc / f * W
+    print("O_eq: ", O_eq)
+    #show difference with O
+    print("O_eq - O: ", O_eq - O)
+    #count the number of equal points out of all points
+    print("number of equal points: ", np.sum(O_eq == O))
+
+
 def get_std(W):
     return np.std(W)
 
@@ -33,7 +51,7 @@ def get_entropy(W):
     Wnotzero = W[W!=0]
     return -np.sum(Wnotzero * np.log2(Wnotzero))
 
-target = "results/run52_AA/"
+target = "results/run69/"
 W0_vector = [(120 *10** 4, 90* 10 ** 2)]
 O0_vector = [0.21001]
 for (W_low, W_high) in W0_vector:
@@ -41,7 +59,7 @@ for (W_low, W_high) in W0_vector:
         print("(W_high(0), O(0)): ", W_high, O0)
         W_0 = np.load(target + "W0_W0_" + str(round(W_high, 1)) + "O0_" + str(O0)[2:5]+".npy")
         W_tmax = np.load(target + "Wtmax_W0_" + str(round(W_high, 1)) + "O0_" + str(O0)[2:5]+".npy")
-        im = plt.imshow(W_tmax, cmap='hot_r', interpolation='nearest', animated=True, vmin=0)
+        im = plt.imshow(W_tmax, cmap='hot_r', interpolation='nearest', animated=True)
         cbar = plt.colorbar(im)
         cbar.set_label('Worm density at time tmax')
         plt.savefig(target + "Wtmax_W0_" + str(round(W_high, 1)) + "O0_" + str(O0)[2:5] + ".pdf", format='pdf')
@@ -59,6 +77,14 @@ for (W_low, W_high) in W0_vector:
         print("oxy at tmax: "+str(np.min(O_tmax)))
         print("initial number of worms: "+str(np.sum(W_0)))
         print("number of worms: "+str(np.sum(W_tmax)))
+        print(W_tmax)
+        #transform worm density into worm count
+        W=W_tmax*4/(128*128)
+        im = plt.imshow(W, cmap='hot_r', interpolation='nearest', animated=True, vmin=0)
+        cbar = plt.colorbar(im)
+        cbar.set_label('Worm amount at time tmax')
+        plt.show()
+        check_instability_criterion(W_tmax, O_tmax, 1.90, -3.98 * 10 ** (-1), 2.25 * 10 ** (-2), 0.5, 0.65, 7.3 * 10 ** (-10), 0.21)
 
 target = "simulation_results/"
 W = np.loadtxt(target + "countAgent.csv",delimiter=",", dtype=str)
@@ -66,6 +92,7 @@ W = W.astype(float)
 print(W)
 print("average W: "+str(np.average(W)))
 print("std(W): "+str(get_std(W)))
+print("max worm density: ", np.max(W))
 normalized_W = W/np.max(W)
 print("entropy(W): "+str(get_entropy(normalized_W)))
 #im = plt.imshow(W, cmap='hot', interpolation='nearest', animated=True)

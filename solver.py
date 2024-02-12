@@ -77,18 +77,31 @@ def solve_PDE_attractant(U,rho,D,L,dt,t_max=600):
         #check if alfa+U is nan
         if np.isnan(alfa+U).any():
             break
+
+        #check if alfa+U is negative
+        if (alfa+U<0).any():
+            print("negative alfa+U: "+str((alfa+U).min()))
+            break
+
         Vu = -beta*np.log(alfa+U)
         V = Vu + Vrho
-        nablaV = np.dot(D,V)+np.dot(V,D)
+
+        if timestep==0:#check CFL condition
+            if np.max(V) * dt / (1/128) ** 2 > 0.5:
+                print("CFL condition not satisfied")
+                break
+
+        #nablaV = np.dot(D,V)+np.dot(V,D)
         laplacianU = np.dot(L,U)+np.dot(U,L)
         laplacianV = np.dot(L,V)+np.dot(V,L)
         laplacianrho = np.dot(L,rho)+np.dot(rho,L)
         dU = -gamma*U+d*laplacianU+s*rho
-        drho = nablarho*nablaV+rho*laplacianV+sigma*laplacianrho
+        drho = np.dot(rho, D)*np.dot(V, D)+np.dot(D,rho)*np.dot(D,V)+rho*laplacianV+sigma*laplacianrho
 
         U += dU*dt
         rho += drho*dt
-
+        if timestep % 1000 == 0:
+            print("timestep and max rho: " + str(timestep) + " " + str(rho.max()))
         t = time.time()
         if t_start + t_max < t:
             break
@@ -97,14 +110,14 @@ def solve_PDE_attractant(U,rho,D,L,dt,t_max=600):
     return U,rho
 
 
-dest = "results/run43_diffusion/"
+dest = "results/run68_diffusion/"
 #check if folder exists, if not create it
 import os
 if not os.path.exists(dest):
     os.makedirs(dest)
 N = 128
 h = 1 / N
-dt = 0.01
+dt = 10**(-2)
 l=10**(-2)
 # let D be the matrix that represents the divergence operator
 D = np.zeros((N, N))
@@ -121,8 +134,9 @@ for i in range(N):
     L[i, (i + 1) % N] = 1 / (2*h) ** 2
     L[i, (i - 1) % N] = 1 / (2*h) ** 2
 
-rho = (np.random.uniform(0, 9000, (N,N)) + np.random.normal(0, 90, (N, N)))/(N*N)
-U = np.random.normal(0,1,(N,N))
+rho = (9000*np.ones((N,N)) + np.random.normal(0, 90, (N, N)))
+U = np.zeros((N,N))
+U[U<0]=0
 plt.imshow(U, cmap='hot', interpolation='nearest', animated=True, vmin=0)
 cbar = plt.colorbar()
 cbar.set_label('U(0)')
@@ -134,7 +148,7 @@ plt.show()
 #save matrices
 np.save(dest + "U0", U)
 np.save(dest + "rho0", rho)
-rho, U = solve_PDE_attractant(U,rho,D,L,dt)
+rho, U = solve_PDE_attractant(U,rho,D,L,dt, t_max=1200)
 plt.imshow(U, cmap='hot', interpolation='nearest', animated=True, vmin=0)
 cbar = plt.colorbar()
 cbar.set_label('U(tmax)')
