@@ -189,6 +189,12 @@ def main(args=None):
 
         # Use this string in your directory name
         directory = f"swarming_results_optimisation/sim_{now_str}/gen_{gen}/ind_{i}"
+        while os.path.isdir(directory):
+            now = datetime.now()
+
+            # Format as string
+            now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+            directory =  f"swarming_results_optimisation/sim_{now_str}/gen_{gen}/ind_{i}"
     time_integration = "euler"
     print("using: ", time_integration)
     eps_min = 10e6
