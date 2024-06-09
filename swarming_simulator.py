@@ -8,6 +8,7 @@ from skimage.transform import resize
 import os, sys
 from tqdm import tqdm
 from numba import jit, vectorize, float32, njit, stencil, prange
+import concurrent.futures
 
 '''
 This file represents the simulation of a swarm of BABOTs that are trying to reach a target. 
@@ -173,12 +174,12 @@ def derivatives(rho, Ua, Ur):
 
 
 #args = [gen, i, parameter_dir]
-def main(args=None):
+def run(args=None):
     global sigma, scale, rho_max, cushion, dt, beta_a, beta_r, alfa_a, alfa_r, D_a, D_r, gamma_a, gamma_r, s_a, s_r
     if args is None:
-        directory = "swarming_results/sim_1"
+        directory = "../swarming_results/sim_1"
         while os.path.isdir(directory):
-            directory = "swarming_simulator/sim_" + str(int(directory.split("/")[-1].split("_")[-1]) + 1)
+            directory = "../swarming_results/sim_" + str(int(directory.split("/")[-1].split("_")[-1]) + 1)
     else:
         gen = str(args[0])
         i = str(args[1])
@@ -197,9 +198,11 @@ def main(args=None):
             directory =  f"swarming_results_optimisation/sim_{now_str}/gen_{gen}/ind_{i}"
     time_integration = "euler"
     print("using: ", time_integration)
-    eps_min = 10e6
-    rho0 = 180e6
+    eps_min = 1e3
+    rho0 = 125e6
     step_max = 500000
+    logging = False
+    make_video = False
     # Read parameters from text file
 
     rho_matrices = []
@@ -220,11 +223,12 @@ def main(args=None):
     # Main loop
     pbar = tqdm(total=step_max)
     success = False
+    sigma_times_scale = sigma * scale
     while step < step_max:
 
         if time_integration == "euler":
 
-            Vrho = sigma * scale * (1 + np.tanh((rho - rho_max) / cushion))
+            Vrho = sigma_times_scale * (1 + np.tanh((rho - rho_max) / cushion))
 
             if np.max(alfa_a + Ua) > 10e17 or np.min(alfa_a + Ua) < 0:
                 print("oh oh:")
@@ -233,20 +237,41 @@ def main(args=None):
                 Exception("Ua is negative or too large")
                 break
 
+            '''
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future_V_u_a = executor.submit(lambda: -beta_a * np.log(alfa_a + Ua))
+                future_V_u_r = executor.submit(lambda: -beta_r * np.log(alfa_r + Ur))
+                future_gradient_x_rho = executor.submit(lambda: gradientX(rho))
+                future_gradient_y_rho = executor.submit(lambda: gradientY(rho))
+
+                V_u_a = future_V_u_a.result()
+                V_u_r = future_V_u_r.result()
+                gradient_x_rho = future_gradient_x_rho.result()
+                gradient_y_rho = future_gradient_y_rho.result()'''
+
             V_u_a = -beta_a * np.log(alfa_a + Ua)
             V_u_r = -beta_r * np.log(alfa_r + Ur)
             V_phi = V_u_r + V_u_a + Vrho
 
             gradient_x_rho = gradientX(rho)
             gradient_y_rho = gradientY(rho)
+            '''with concurrent.futures.ThreadPoolExecutor() as executor:
+                future_drho = executor.submit(lambda: gradientX(rho * gradientX(V_phi) + sigma * gradient_x_rho) + gradientY(rho * gradientY(V_phi) + sigma * gradient_y_rho))
+                future_dUa = executor.submit(lambda: -gamma_a * Ua + D_a * laplacian(Ua) + s_a * rho)
+                future_dUr = executor.submit(lambda: -gamma_r * Ur + D_r * laplacian(Ur) + s_r * rho)
+
+                drho = future_drho.result()
+                dUa = future_dUa.result()
+                dUr = future_dUr.result()'''
             drho = gradientX(rho * gradientX(V_phi) + sigma * gradient_x_rho) + gradientY(
                 rho * gradientY(V_phi) + sigma * gradient_y_rho)
 
-            dU_a = -gamma_a * Ua + D_a * laplacian(Ua) + s_a * rho
-            dU_r = -gamma_r * Ur + D_r * laplacian(Ur) + s_r * rho
+            dUa = -gamma_a * Ua + D_a * laplacian(Ua) + s_a * rho
+
+            dUr = -gamma_r * Ur + D_r * laplacian(Ur) + s_r * rho
             rho = (drho) * dt + rho
-            Ua = dU_a * dt + Ua
-            Ur = dU_r * dt + Ur
+            Ua = dUa * dt + Ua
+            Ur = dUr * dt + Ur
 
             #check for non numerical values
             if np.any(np.isnan(rho)) or np.any(np.isnan(Ua)) or np.any(np.isnan(Ur)):
@@ -290,7 +315,7 @@ def main(args=None):
             Ur += (k1_Ur + 2 * k2_Ur + 2 * k3_Ur + k4_Ur) / 6
 
         #add 10e7 (100/mm^2 = 10e7/mm^2) to Ua in the target area
-        Ua[236:276, 236:276] += 10e7
+        Ua[236:276, 236:276] += 10e9
 
         #force Ua and Ur positive
         Ua[Ua < 0] = 0
@@ -312,13 +337,14 @@ def main(args=None):
         if np.any(comparison_a) or np.any(comparison_r):
             break
         '''
-        '''
-        if step % 10000 == 0:
-            rho_matrices.append(rho)
+
+        if logging and step % 100 == 0:
+            if make_video:
+                rho_matrices.append(rho)
             #save matrices every 10000 steps
             np.save(directory + f"/rho_{step}.npy", rho)
             np.save(directory + f"/Ua_{step}.npy", Ua)
-            np.save(directory + f"/Ur_{step}.npy", Ur)'''
+            np.save(directory + f"/Ur_{step}.npy", Ur)
 
         if eps < eps_min or step == step_max - 1:
             rho_matrices.append(rho)
@@ -326,38 +352,74 @@ def main(args=None):
             np.save(directory + f"/rho_{step}.npy", rho)
             np.save(directory + f"/Ua_{step}.npy", Ua)
             np.save(directory + f"/Ur_{step}.npy", Ur)
+            print("saving in "+ directory + f"/rho_{step}.npy")
             success = True
             break
         pbar.update(1)
         step += 1
     print("eps: ", eps)
-    '''
-    fig, ax = plt.subplots()
-    if len(rho_matrices) == 0:
-        rho_matrices.append(rho)
-    cax = ax.imshow(rho_matrices[0], cmap='viridis', interpolation='nearest')
 
-    def update(frame):
-        cax.set_array(rho_matrices[frame])
-        return [cax]
+    if make_video:
+        fig, ax = plt.subplots()
+        if len(rho_matrices) == 0:
+            rho_matrices.append(rho)
+        cax = ax.imshow(rho_matrices[0], cmap='viridis', interpolation='nearest')
 
-    ani = animation.FuncAnimation(fig, update, frames=len(rho_matrices), blit=True)
-    ani.save('rho_evolution.mp4', writer='ffmpeg', fps=10, dpi=100)
-'''
+        def update(frame):
+            cax.set_array(rho_matrices[frame])
+            return [cax]
+
+        ani = animation.FuncAnimation(fig, update, frames=len(rho_matrices), blit=True)
+        ani.save('rho_evolution.mp4', writer='ffmpeg', fps=1, dpi=100)
+
     #show(rho)
     if success:
-        from clustering2 import evaluate
-        c, kurt, bins, ys = evaluate(directory + f"/rho_{step}.npy", 50)
+        #from clustering2 import evaluate
+        #c, kurt, bins, ys = evaluate(directory + f"/rho_{step}.npy", 50)
+        c = rho[236:276, 236:276].sum() / rho.sum()
         print(c)
-
-    return 0.0, t
+    else:
+        c=0
+        t = step_max*dt
+    return c, t
 
 
 #main([0, 0, "parameters_swarming_optimised.json"])
 
 #load matrix from swarming_results/sim_1/rho_{step}.npy and show it
-def show_matrix():
-    rho = np.load("2/rho_500000.npy")
+def show_matrix(dir_):
+    rho = np.load(dir_)
     show(rho)
 
 #show_matrix()
+if __name__ == "__main__":
+    arg = sys.argv[1]
+    if arg=="run":
+        run()
+    #'''
+    else:
+        from clustering2 import evaluate
+        directory=f"../swarming_results/sim_{int(arg)}"
+        #step=2091
+        #c, kurt, bins, ys = evaluate(directory + f"/rho_{step}.npy", 50)
+        #print(c)
+        #show(np.load(directory + f"/rho_{step}.npy"))
+
+        def build_video(dir_):
+            rho_matrices = []
+            for file in os.listdir(dir_):
+                if file.endswith(".npy") and "rho" in file:
+                    rho_matrices.append(np.load(dir_ + "/" + file))
+            fig, ax = plt.subplots()
+            cax = ax.imshow(rho_matrices[0], cmap='magma', interpolation='nearest')
+
+            def update(frame):
+                cax.set_array(rho_matrices[frame])
+                return [cax]
+            #show(rho_matrices[-1])
+            ani = animation.FuncAnimation(fig, update, frames=len(rho_matrices), blit=True)
+            ani.save('rho_evolution.mp4', writer='ffmpeg', fps=20, dpi=100)
+            #get the sum of the densities inside of the target area over the total sum of the densities
+            c = rho_matrices[-1][236:276, 236:276].sum()/rho_matrices[-1].sum()
+            print(c)
+        build_video(directory)#'''

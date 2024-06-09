@@ -11,21 +11,21 @@ from sympy import evalf
 import multiprocessing
 
 parameter_ranges = {
-    "sigma": (5.555e-10, 5.555e-6),
+    "sigma": (0, 5.555e-6),
     "scale": (0, 2),
-    "rho_max": (28e6, 28e8),
-    "cushion": (2e6, 2e8),
-    "beta_a": (1.111e-11, 1.111e-7),
-    "beta_r": (-1.111e-7, -1.111e-11),
-    "alpha_a": (15e4, 15e8),
-    "alpha_r": (15e4, 15e8),
-    "D_a": (1.111e-12, 1.111e-8),
-    "D_r": (1.111e-11, 1.111e-7),
-    "gamma_a": (1e-4, 1),
-    "gamma_r": (1e-5, 1e-1),
-    "s_a": (1, 1e4),
-    "s_r": (1e-1, 1e3),
-    "rho0": (10e6, 10e8),
+    "rho_max": (0, 28e8),
+    "cushion": (0, 2e8),
+    "beta_a": (0, 1.111e-7),
+    "beta_r": (-1.111e-7, 1e-9),
+    "alpha_a": (0, 15e8),
+    "alpha_r": (0, 15e8),
+    "D_a": (0, 1.111e-8),
+    "D_r": (0, 1.111e-7),
+    "gamma_a": (0, 1),
+    "gamma_r": (0, 1e-1),
+    "s_a": (0, 1e4),
+    "s_r": (0, 1e3),
+    "rho0": (1e6, 10e9),
 }
 individual_index=0
 def create_individual(_):
@@ -70,9 +70,9 @@ def mutate(individual, mutation_rate):
     return individual
 
 
-def objectives(gen, individual, i):
-    print("gen: " + str(gen) + ",ind: " + str(i))
-    parameter_dir = f"parameters_swarming_optimised{i}.json"
+def objectives(gen, individual, i_):
+    print("gen: " + str(gen) + ",ind: " + str(i_))
+    parameter_dir = f"parameters_swarming_optimised{i_}.json"
     #save the individual inside of "paramters_swarming_optimisation.json"
     with open(parameter_dir, "w") as f:
         individual_dictionary = {}
@@ -81,8 +81,8 @@ def objectives(gen, individual, i):
         json.dump(individual_dictionary, f)
     #run the swarming simulator
     #have a try catch block to catch any errors. in that case, time is set to infinity and clustering is set to 0
-
-    clustering, time = swarming_simulator.main([gen, i, parameter_dir])
+    print("Running swarming simulator: ", gen, i_, parameter_dir)
+    clustering, time = swarming_simulator.run([gen, i_, parameter_dir])
 
     max_time = 500000*0.01
     #normalize time

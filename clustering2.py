@@ -272,7 +272,7 @@ def evaluate(data, b):
         matrix = np.load(data)
     avg = np.average(matrix)
 
-    matrix = matrix[236:276, 236:276]
+    #matrix = matrix[236:276, 236:276]
     filename = "dictionary_"+data.replace(".", "").split("/")[-1]+".pkl"
     if True:#not os.path.isfile(filename) and False:
 
@@ -283,7 +283,7 @@ def evaluate(data, b):
     #plot_heatmap(dict_to_matrix(p_id, len(matrix)))
     m=dict_to_matrix(p_id, len(matrix))
     #restrict m to 236:276, 236:276
-    m = m[236:276, 236:276]
+    #m = m[236:276, 236:276]
     unique_ids = get_unique_values(p_id)
     id_index = 0
     ids_under_avg = []
