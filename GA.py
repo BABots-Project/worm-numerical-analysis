@@ -221,7 +221,7 @@ def run(individual, gen, individual_index):
         directory = f"../my_swarming_results_optimisation/sim_{now_str}/gen_{gen}/ind_{individual_index}"
 
     eps_min = 1e3
-    step_max = 50000
+    step_max = 500000
     logging = True
 
     if not os.path.isdir(directory):
@@ -528,7 +528,7 @@ def saes(maxgen, popsize, lambda_min, lambda_max, alpha_0, c, m, elitism=0):
     return best_individual_list, best_fitness_list
 
 if __name__ == "__main__":
-    maxgen = 10
+    maxgen = 50
     popsize = 10
     mutation_rate = 0.1
     elitism = 3
