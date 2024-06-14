@@ -221,7 +221,7 @@ def run(individual, gen, individual_index):
         directory = f"../my_swarming_results_optimisation/sim_{now_str}/gen_{gen}/ind_{individual_index}"
 
     eps_min = 1e3
-    step_max = 500000
+    step_max = 50000
     logging = True
 
     if not os.path.isdir(directory):
@@ -380,7 +380,7 @@ def mutate(individual, mutation_rate):
             elif 11 <= i < 16:
                 min_, max_ = parameter_ranges_pheromone_repulsive[list(parameter_ranges_pheromone_repulsive.keys())[i - 11]]
             try:
-                print("editing individual ", i, " with min: ", min_, " and max: ", max_, "gene: ", individual[i])
+                #print("editing individual ", i, " with min: ", min_, " and max: ", max_, "gene: ", individual[i])
                 individual[i] = random.uniform(min_, max_)
             except:
                 print("error in mutation")
@@ -399,8 +399,15 @@ def crossover(parent1, parent2):
 def load_individual(directory):
     individual = []
     with open(directory, "r") as f:
-        for line in f:
-            individual.append(float(line.split("=")[1]))
+        for i, line in enumerate(f):
+            if i == 0:
+                individual.append(float(line.split("=")[1]))
+            elif 1 <= i < 6 and ODOR:
+                individual.append(float(line.split("=")[1]))
+            elif 6 <= i < 11 and ATTRACTIVE_PHEROMONE:
+                individual.append(float(line.split("=")[1]))
+            elif 11 <= i < 16 and REPULSIVE_PHEROMONE:
+                individual.append(float(line.split("=")[1]))
     return individual
 
 
@@ -529,7 +536,7 @@ def saes(maxgen, popsize, lambda_min, lambda_max, alpha_0, c, m, elitism=0):
 
 if __name__ == "__main__":
     maxgen = 50
-    popsize = 10
+    popsize = 20
     mutation_rate = 0.1
     elitism = 3
     lambda_min = 2
