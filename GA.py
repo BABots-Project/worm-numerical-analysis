@@ -221,7 +221,7 @@ def run(individual, gen, individual_index):
         directory = f"../my_swarming_results_optimisation/sim_{now_str}/gen_{gen}/ind_{individual_index}"
 
     eps_min = 1e3
-    step_max = 50000
+    step_max = 500000
     logging = True
 
     if not os.path.isdir(directory):
@@ -449,7 +449,7 @@ def GA(maxgen, popsize, mutation_rate, elitism=0):
         new_population = population[:elitism]
 
 
-        for j in range(popsize - elitism):
+        for j in range(elitism, popsize - elitism):
             #select two individuals
             parent1 = tournament_selection(population, fitness_list)
             parent2 = tournament_selection(population, fitness_list)
@@ -518,7 +518,7 @@ def saes(maxgen, popsize, lambda_min, lambda_max, alpha_0, c, m, elitism=0):
         new_population = population[:elitism]
 
         # Create new offspring
-        for _ in range(math.ceil(lambda_e) - elitism):
+        for _ in range(elitism, math.ceil(lambda_e) - elitism):
             parent1 = tournament_selection(population, fitness_list)
             parent2 = tournament_selection(population, fitness_list)
             child1, child2 = crossover(parent1, parent2)
