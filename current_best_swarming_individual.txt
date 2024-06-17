@@ -1,9 +1,9 @@
-rho0=126e6
+rho0=120e6
 sigma=5.555e-10
 D=1e-9
 beta=1.111e-8
-gamma=0.0001
 alpha=15e5
+gamma=0.0001
 beta_a=4.111e-10
 alpha_a=15e5
 gamma_a=0.01
