@@ -221,7 +221,7 @@ def run(individual, gen, individual_index):
         directory = f"../my_swarming_results_optimisation/sim_{now_str}/gen_{gen}/ind_{individual_index}"
 
     eps_min = 1e3
-    step_max = 5000
+    step_max = 500000
     logging = True
 
     if not os.path.isdir(directory):
