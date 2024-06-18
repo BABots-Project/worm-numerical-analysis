@@ -59,24 +59,24 @@ def save_individual_parameters(individual, directory):
     with open(directory + "/parameters.txt", "w") as f:
         f.write("rho0: " + str(individual[0]) + "\n")
         if ODOR:
-            f.write("D: " + str(individual[1]) + "\n")
-            f.write("beta: " + str(individual[2]) + "\n")
-            f.write("alpha: " + str(individual[3]) + "\n")
-            f.write("gamma: " + str(individual[4]) + "\n")
+            f.write("sigma: " + str(individual[1]) + "\n")
+            f.write("D: " + str(individual[2]) + "\n")
+            f.write("beta: " + str(individual[3]) + "\n")
+            f.write("alpha: " + str(individual[4]) + "\n")
+            f.write("gamma: " + str(individual[5]) + "\n")
         if ATTRACTIVE_PHEROMONE:
-            f.write("beta_a: " + str(individual[5]) + "\n")
-            f.write("alpha_a: " + str(individual[6]) + "\n")
-            f.write("gamma_a: " + str(individual[7]) + "\n")
-            f.write("s_a: " + str(individual[8]) + "\n")
-            f.write("D_a: " + str(individual[9]) + "\n")
+            f.write("beta_a: " + str(individual[6]) + "\n")
+            f.write("alpha_a: " + str(individual[7]) + "\n")
+            f.write("gamma_a: " + str(individual[8]) + "\n")
+            f.write("s_a: " + str(individual[9]) + "\n")
+            f.write("D_a: " + str(individual[10]) + "\n")
         if REPULSIVE_PHEROMONE:
-            f.write("beta_r: " + str(individual[10]) + "\n")
-            f.write("alpha_r: " + str(individual[11]) + "\n")
-            f.write("gamma_r: " + str(individual[12]) + "\n")
-            f.write("s_r: " + str(individual[13]) + "\n")
-            f.write("D_r: " + str(individual[14]) + "\n")
+            f.write("beta_r: " + str(individual[11]) + "\n")
+            f.write("alpha_r: " + str(individual[12]) + "\n")
+            f.write("gamma_r: " + str(individual[13]) + "\n")
+            f.write("s_r: " + str(individual[14]) + "\n")
+            f.write("D_r: " + str(individual[15]) + "\n")
         if V_RHO:
-            f.write("sigma: " + str(individual[15]) + "\n")
             f.write("scale: " + str(individual[16]) + "\n")
             f.write("rho_max: " + str(individual[17]) + "\n")
             f.write("cushion: " + str(individual[18]) + "\n")
@@ -221,7 +221,7 @@ def run(individual, gen, individual_index):
         directory = f"../my_swarming_results_optimisation/sim_{now_str}/gen_{gen}/ind_{individual_index}"
 
     eps_min = 1e3
-    step_max = 500000
+    step_max = 5000
     logging = True
 
     if not os.path.isdir(directory):
@@ -275,11 +275,13 @@ def run(individual, gen, individual_index):
 
         # check for non numerical values
         if np.any(np.isnan(rho)) or np.any(np.isnan(U)):
+            eps=np.inf
             Exception("Non numerical values")
             break
 
         # check for infinities
         if np.any(rho) > 10e16:
+            eps = np.inf
             Exception("Rho is too large")
             break
 
@@ -351,6 +353,29 @@ def create_individual():
             individual.append(random.uniform(lower, upper))
     return individual
 
+def create_progressive_individual(multiplier):
+    local_optimum = load_individual("current_best_swarming_individual.txt")
+    individual = []
+    for i, parameter in enumerate(parameter_ranges.keys()):
+        lower, upper = 1/multiplier * local_optimum[i], multiplier * local_optimum[i]
+        individual.append(random.uniform(lower, upper))
+    if ODOR:
+        for i, parameter in enumerate(parameter_ranges_odor.keys()):
+            lower, upper = sorted([1/multiplier * local_optimum[i + 1], multiplier * local_optimum[i + 1]])
+            individual.append(random.uniform(lower, upper))
+    if ATTRACTIVE_PHEROMONE:
+        for i, parameter in enumerate(parameter_ranges_pheromone_attractive.keys()):
+            lower, upper = sorted([1/multiplier * local_optimum[i + 6], multiplier * local_optimum[i + 6]])
+            individual.append(random.uniform(lower, upper))
+    if REPULSIVE_PHEROMONE:
+        for i, parameter in enumerate(parameter_ranges_pheromone_repulsive.keys()):
+            lower, upper = sorted([1/multiplier * local_optimum[i + 11], multiplier * local_optimum[i + 11]])
+            individual.append(random.uniform(lower, upper))
+    if V_RHO:
+        for i, parameter in enumerate(parameter_ranges_vrho.keys()):
+            lower, upper = sorted([1/multiplier * local_optimum[i + 16], multiplier * local_optimum[i + 16]])
+            individual.append(random.uniform(lower, upper))
+    return individual
 
 def tournament_selection(population, fitness_list):
     #select two random individuals
@@ -381,6 +406,20 @@ def mutate(individual, mutation_rate):
                 min_, max_ = parameter_ranges_pheromone_repulsive[list(parameter_ranges_pheromone_repulsive.keys())[i - 11]]
             try:
                 #print("editing individual ", i, " with min: ", min_, " and max: ", max_, "gene: ", individual[i])
+                individual[i] = random.uniform(min_, max_)
+            except:
+                print("error in mutation")
+                print("individual: ", individual)
+                print("i: ", i)
+    return individual
+
+def mutate_progressive(individual, mutation_rate, multiplier):
+    local_optimum = load_individual("current_best_swarming_individual.txt")
+    for i in range(len(individual)):
+        r = random.random()
+        if r < mutation_rate:
+            min_, max_ = sorted([1/multiplier * local_optimum[i], multiplier * local_optimum[i]])
+            try:
                 individual[i] = random.uniform(min_, max_)
             except:
                 print("error in mutation")
@@ -464,10 +503,10 @@ def GA(maxgen, popsize, mutation_rate, elitism=0):
     return best_individual_list, best_fitness_list
 
 
-def saes(maxgen, popsize, lambda_min, lambda_max, alpha_0, c, m, elitism=0):
+def saes(maxgen, popsize, lambda_min, lambda_max, alpha_0, c, m, multiplier, elitism=0):
     # Create initial population with a random uniform distribution
-    population = [create_individual() for _ in range(popsize - 1)]
-    population.append(load_individual("current_best_swarming_individual.txt"))
+    population = [create_progressive_individual(multiplier) for _ in range(popsize)]
+    #population.append(load_individual("current_best_swarming_individual.txt"))
     # Initial parameters
     t_e = 1.0
     alpha_e = alpha_0
@@ -522,7 +561,8 @@ def saes(maxgen, popsize, lambda_min, lambda_max, alpha_0, c, m, elitism=0):
             parent1 = tournament_selection(population, fitness_list)
             parent2 = tournament_selection(population, fitness_list)
             child1, child2 = crossover(parent1, parent2)
-            child = mutate(child1, alpha_e)
+            #child = mutate(child1, alpha_e)
+            child = mutate_progressive(child1, alpha_e, multiplier)
             new_population.append(child)
 
         # Ensure the population size is maintained
@@ -535,15 +575,30 @@ def saes(maxgen, popsize, lambda_min, lambda_max, alpha_0, c, m, elitism=0):
     return best_individual_list, best_fitness_list
 
 if __name__ == "__main__":
-    maxgen = 50
-    popsize = 20
+    maxgen = 10
+    popsize = 10
     mutation_rate = 0.1
     elitism = 3
     lambda_min = 2
     lambda_max = 100
     c=2
     m=10
-    best_individual_list, best_fitness_list = saes(maxgen, popsize, lambda_min, lambda_max, mutation_rate, c, m, elitism=elitism)#GA(maxgen, popsize, mutation_rate, elitism)
+    multiplier = 2
+    improvement = 0
+    epsilon = 1e-3
+    prev_best = 0
+    while improvement < epsilon:
+        best_individual_list, best_fitness_list = saes(maxgen, popsize, lambda_min, lambda_max, mutation_rate, c, m, multiplier, elitism=elitism)#GA(maxgen, popsize, mutation_rate, elitism)
+        improvement = abs(best_fitness_list[-1]-prev_best)
+        prev_best = best_fitness_list[-1]
+        print("improvement: ", improvement)
+        print("best individual: ", best_individual_list[-1])
+        print("best fitness: ", best_fitness_list[-1])
+        multiplier *= 2
+        maxgen += 10
+        popsize += 10
+        mutation_rate += 0.01
+        elitism += 1
     print(best_individual_list)
     print(best_fitness_list)
     #save the best individual and its fitness
