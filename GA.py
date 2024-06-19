@@ -182,7 +182,10 @@ def laplacian(in_array):
 
 def save_final_plot(rho, directory):
     import matplotlib.pyplot as plt
+    c = rho[236:276, 236:276].sum() / rho.sum()
     plt.imshow(rho, cmap="rainbow")
+    #add c to the title
+    plt.title("c = " + str(c))
     plt.colorbar()
     #save as pdf
     plt.savefig(directory + "/final_plot.pdf")
@@ -190,6 +193,7 @@ def save_final_plot(rho, directory):
 
     #same with imshow with LogNorm cut off at 10^3
     plt.imshow(rho, cmap="rainbow", norm=LogNorm(vmin=1e3, vmax=rho.max()))
+    plt.title("c = " + str(c))
     plt.colorbar()
     #save as pdf
     plt.savefig(directory + "/final_plot_lognorm.pdf")
