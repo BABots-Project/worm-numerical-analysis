@@ -4,6 +4,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.colors import LogNorm
 from skimage.transform import resize
 import os, sys
 from tqdm import tqdm
@@ -74,13 +75,29 @@ sigma, scale, rho_max, cushion, dt, beta_a, beta_r, alfa_a, alfa_r, D_a, D_r, ga
 
 
 #utility function to show a matrix using im.show()
-def show(matrix):
+def show(matrix, directory):
     #invert y axis to have the origin in the bottom left corner
     matrix = np.flipud(matrix)
-    plt.imshow(matrix, cmap='hot', interpolation='nearest', vmin=0)
+    #set values that are less than 10e3 to 10e3
+    matrix[matrix < 10e3] = 10e3
+    plt.imshow(matrix, cmap='rainbow', interpolation='nearest', norm=LogNorm(vmin=10e3, vmax=np.max(matrix)))
+    #plt.imshow(matrix, cmap='rainbow', interpolation='nearest')
     plt.gca().invert_yaxis()
-    plt.colorbar(label='rho')
+    #plt.colorbar(label='rho')
+    #set the label sizes and tick sizes
+    plt.tick_params(axis='both', which='major', labelsize=50)
+    plt.tick_params(axis='both', which='minor', labelsize=48)
+    plt.xlabel('x', fontsize=60)
+    plt.ylabel('y', fontsize=60)
+    #plt.tight_layout()
+    #same for colorbar
+    cbar = plt.colorbar()
+    cbar.set_label(r'$\rho$', fontsize=60)
+    cbar.ax.tick_params(labelsize=60)
 
+    #set colorbar label size
+
+    plt.savefig(directory + "/final_density.pdf")
     plt.show()
 
 
@@ -199,7 +216,7 @@ def run(args=None):
     time_integration = "euler"
     print("using: ", time_integration)
     eps_min = 1e3
-    rho0 = 125e6
+    rho0 = 120e6
     step_max = 500000
     logging = False
     make_video = False
