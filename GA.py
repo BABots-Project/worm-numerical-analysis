@@ -590,7 +590,17 @@ if __name__ == "__main__":
     multiplier = 2
     improvement = 0
     epsilon = 1e-3
-    prev_best = 0
+    best_individual_list, best_fitness_list = saes(maxgen, popsize, lambda_min, lambda_max, mutation_rate, c, m,
+                                                   multiplier, elitism=elitism)
+    prev_best = best_fitness_list[-1]
+    print("improvement: ", improvement)
+    print("best individual: ", best_individual_list[-1])
+    print("best fitness: ", best_fitness_list[-1])
+    multiplier *= 2
+    maxgen += 10
+    popsize += 10
+    mutation_rate += 0.01
+    elitism += 1
     while improvement < epsilon:
         best_individual_list, best_fitness_list = saes(maxgen, popsize, lambda_min, lambda_max, mutation_rate, c, m, multiplier, elitism=elitism)#GA(maxgen, popsize, mutation_rate, elitism)
         improvement = abs(best_fitness_list[-1]-prev_best)
