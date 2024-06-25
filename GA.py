@@ -307,13 +307,23 @@ def run(individual, gen, individual_index):
         if logging and step % 1000 == 0:
             # save matrices every 10000 steps
             np.save(directory + f"/rho_{step}.npy", rho)
-            np.save(directory + f"/U_{step}.npy", U)
+            if ODOR:
+                np.save(directory + f"/U_{step}.npy", U)
+            if ATTRACTIVE_PHEROMONE:
+                np.save(directory + f"/Ua_{step}.npy", Ua)
+            if REPULSIVE_PHEROMONE:
+                np.save(directory + f"/Ur_{step}.npy", Ur)
+
 
         if eps < eps_min or step == step_max - 1:
-            # save matrices every 10000 steps
             np.save(directory + f"/rho_{step}.npy", rho)
-            np.save(directory + f"/U_{step}.npy", U)
-            print("saving in " + directory + f"/rho_{step}.npy")
+            if ODOR:
+                np.save(directory + f"/U_{step}.npy", U)
+            if ATTRACTIVE_PHEROMONE:
+                np.save(directory + f"/Ua_{step}.npy", Ua)
+            if REPULSIVE_PHEROMONE:
+                np.save(directory + f"/Ur_{step}.npy", Ur)
+            #print("saving in " + directory + f"/rho_{step}.npy")
             success = True
             break
         pbar.update(1)
@@ -596,23 +606,20 @@ if __name__ == "__main__":
     print("improvement: ", improvement)
     print("best individual: ", best_individual_list[-1])
     print("best fitness: ", best_fitness_list[-1])
-    multiplier *= 2
-    maxgen += 10
-    popsize += 10
-    mutation_rate += 0.01
-    elitism += 1
+
     while improvement < epsilon:
+        multiplier *= 2
+        maxgen += 10
+        popsize += 10
+        mutation_rate += 0.01
+        elitism += 1
         best_individual_list, best_fitness_list = saes(maxgen, popsize, lambda_min, lambda_max, mutation_rate, c, m, multiplier, elitism=elitism)#GA(maxgen, popsize, mutation_rate, elitism)
         improvement = abs(best_fitness_list[-1]-prev_best)
         prev_best = best_fitness_list[-1]
         print("improvement: ", improvement)
         print("best individual: ", best_individual_list[-1])
         print("best fitness: ", best_fitness_list[-1])
-        multiplier *= 2
-        maxgen += 10
-        popsize += 10
-        mutation_rate += 0.01
-        elitism += 1
+    print("DONE.")
     print(best_individual_list)
     print(best_fitness_list)
     #save the best individual and its fitness
