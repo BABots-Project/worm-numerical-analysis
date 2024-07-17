@@ -191,11 +191,12 @@ def save_parameters(directory, rho0):
 
 sigma, gamma, beta, alpha, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, scale, rho_max, cushion = updateParameters(PARAMETERS_FILE)
 
-def run(b_start, args=None):
+def run(params, args=None):
+    b_start, custom_D = params
     print("starting simulation with b_start=", b_start)
     global sigma, gamma, beta, alpha, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, dt
     if args is None:
-        directory = "../my_swarming_results/distance/b_start_" + str(b_start)
+        directory = "../my_swarming_results/distance/b_start_" + str(b_start) + "/D_" + str(custom_D)
         #while os.path.isdir(directory):
         #    directory = "../my_swarming_results/sim_" + str(int(directory.split("/")[-1].split("_")[-1]) + 1)
     else:
@@ -253,6 +254,8 @@ def run(b_start, args=None):
     pbar = tqdm(total=step_max)
     success = False
     sigma_times_scale = sigma * scale
+
+    D = custom_D
     while step < step_max:
 
         if time_integration == "euler":
@@ -380,15 +383,39 @@ def run(b_start, args=None):
 
     return c, t
 
+def evalute_two_spots():
+    c_a_list = []
+    c_b_list = []
+    for b_start in range(20, 256, 20):
+        # laod matrix from ../my_swarming_results/distance/b_start_{b_start}/rho_499999.npy
+        rho = np.load(f"../my_swarming_results/distance/b_start_{b_start}/rho_499999.npy")
+        c_a = rho[280:320, 360:400].sum() / rho.sum()
+        c_b = rho[280:320, b_start - 20:b_start + 20].sum() / rho.sum()
+        c_a_list.append(c_a)
+        c_b_list.append(c_b)
+    plt.plot(list(range(20, 256, 20)), c_a_list, label="A")
+    plt.plot(list(range(20, 256, 20)), c_b_list, label="B")
+    plt.legend()
+    plt.show()
+
 if __name__ == "__main__":
+
+
+
     arg = sys.argv[1]
     if arg=="run":
 
-        params = list(range(20, 256, 20))
+        b_starts = list(range(20, 256, 20))
+        max_d = 4.47*10**-9
+        min_d = 1.12*10**-9
+        delta_d = (max_d - min_d) / 10
+        d_list = list(np.arange(min_d, max_d, delta_d))
+        params = [(b_start, d) for b_start in b_starts for d in d_list]
+        print(params)
         with multiprocessing.Pool() as pool:
             results = pool.map(run, params)
         #run()
-    #'''
+    #
     else:
         from clustering2 import evaluate, create_matrix_from_tsv
 
@@ -415,8 +442,8 @@ if __name__ == "__main__":
             print(c2)
             fig, ax = plt.subplots()
             #set minimum value of all rho matrices to 10e3
-            for i in range(len(rho_matrices)):
-                rho_matrices[i][rho_matrices[i] < 10e3] = 10e3
+            #for i in range(len(rho_matrices)):
+            #    rho_matrices[i][rho_matrices[i] < 10e3] = 10e3
             colors = ['#FFFCF4', '#E6A76C', '#D8524E', '#8F1D4D', '#3B0A3A']
 
             # Create a list of positions from 0 to 1
@@ -425,7 +452,8 @@ if __name__ == "__main__":
             from matplotlib.colors import LinearSegmentedColormap
             # Create a colormap object
             cmap = mcolors.LinearSegmentedColormap.from_list('custom_magma', list(zip(positions, colors)))
-            cax = ax.imshow(rho_matrices[0], cmap='magma', interpolation='nearest', norm=LogNorm(vmin=1, vmax=np.max(rho_matrices[0])))
+            vmin = np.min(rho_matrices[0])+10**-5
+            cax = ax.imshow(rho_matrices[0], cmap='magma', interpolation='nearest')#, norm=LogNorm(vmin=vmin, vmax=np.max(rho_matrices[0])))
             fig.patch.set_facecolor('#FFFCF4')
             ax.set_facecolor('#FFFCF4')
             #remap x and y ticks to go from 0 to 10
