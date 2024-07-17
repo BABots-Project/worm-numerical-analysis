@@ -498,7 +498,7 @@ def main():
     #ani = animation.FuncAnimation(fig, update, frames=len(rho_matrices), blit=True)
 
     # Save the animation as a video file or display it
-    #ani.save('rho_evolution.mp4', writer='ffmpeg', fps=10, dpi=100)
+    #ani.save('rho_evolution_oxy_40.mp4', writer='ffmpeg', fps=10, dpi=100)
     L = visualizeGrid(O, rho, 1000, step, L)
     #tpbar.close()
 

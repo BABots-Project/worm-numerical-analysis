@@ -1,0 +1,5 @@
+sigma=5.555e-10
+gamma=0.0001
+beta=1.111e-8
+alpha=15e5
+D=1e-9

@@ -10,9 +10,9 @@ from numba import njit
 from tqdm import tqdm
 
 ODOR = True
-ATTRACTIVE_PHEROMONE = False
-REPULSIVE_PHEROMONE = False
-V_RHO = False
+ATTRACTIVE_PHEROMONE = True
+REPULSIVE_PHEROMONE = True
+V_RHO = True
 N = 512
 l = 0.02
 dx = l / N
@@ -80,7 +80,7 @@ def save_individual_parameters(individual, directory):
             f.write("scale: " + str(individual[16]) + "\n")
             f.write("rho_max: " + str(individual[17]) + "\n")
             f.write("cushion: " + str(individual[18]) + "\n")
-        print("parameters saved in " + directory)
+        #print("parameters saved in " + directory)
 
 
 def initial_conditions_only_odor(rho0):
@@ -387,6 +387,7 @@ def create_progressive_individual(multiplier):
             individual.append(random.uniform(lower, upper))
     if V_RHO:
         for i, parameter in enumerate(parameter_ranges_vrho.keys()):
+            print("i: ", i, "i+16: ",i+16, " local_optimum: ", local_optimum)
             lower, upper = sorted([1/multiplier * local_optimum[i + 16], multiplier * local_optimum[i + 16]])
             individual.append(random.uniform(lower, upper))
     return individual
@@ -460,6 +461,8 @@ def load_individual(directory):
             elif 6 <= i < 11 and ATTRACTIVE_PHEROMONE:
                 individual.append(float(line.split("=")[1]))
             elif 11 <= i < 16 and REPULSIVE_PHEROMONE:
+                individual.append(float(line.split("=")[1]))
+            elif 16 <= i < 19 and V_RHO:
                 individual.append(float(line.split("=")[1]))
     return individual
 

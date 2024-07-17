@@ -38,7 +38,7 @@ def update(frame):
 ani = animation.FuncAnimation(fig, update, frames=len(rho_matrices), blit=True)
 
 # Save the animation to a file
-ani.save('rho_evolution.mp4', writer='ffmpeg')
+ani.save('rho_evolution_oxy_40.mp4', writer='ffmpeg')
 
 #plt.show()
 #show(rho_matrices[-1])

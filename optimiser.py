@@ -246,9 +246,11 @@ max_gen = 2
 mutation_rate = 0.3
 
 # Running NSGA-II
-objective1_values, objective2_values = nsga2(population, max_gen, mutation_rate)
+#objective1_values, objective2_values = nsga2(population, max_gen, mutation_rate)
 #save the two lists
-np.save("objective1_values.npy", objective1_values)
-np.save("objective2_values.npy", objective2_values)
+#np.save("objective1_values.npy", objective1_values)
+#np.save("objective2_values.npy", objective2_values)
 # Plotting the non-dominated curve
+objective1_values = np.load("objective1_values.npy")
+objective2_values = np.load("objective2_values.npy")
 non_dominating_curve_plotter(objective1_values, objective2_values)

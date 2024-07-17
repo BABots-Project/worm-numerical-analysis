@@ -387,7 +387,7 @@ def run(args=None):
             return [cax]
 
         ani = animation.FuncAnimation(fig, update, frames=len(rho_matrices), blit=True)
-        ani.save('rho_evolution.mp4', writer='ffmpeg', fps=1, dpi=100)
+        ani.save('rho_evolution_oxy_40.mp4', writer='ffmpeg', fps=1, dpi=100)
 
     #show(rho)
     if success:
@@ -435,7 +435,7 @@ if __name__ == "__main__":
                 return [cax]
             #show(rho_matrices[-1])
             ani = animation.FuncAnimation(fig, update, frames=len(rho_matrices), blit=True)
-            ani.save('rho_evolution.mp4', writer='ffmpeg', fps=20, dpi=100)
+            ani.save('rho_evolution_oxy_40.mp4', writer='ffmpeg', fps=20, dpi=100)
             #get the sum of the densities inside of the target area over the total sum of the densities
             c = rho_matrices[-1][236:276, 236:276].sum()/rho_matrices[-1].sum()
             print(c)
