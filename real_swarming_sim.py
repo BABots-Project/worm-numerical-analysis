@@ -192,7 +192,7 @@ def save_parameters(directory, rho0):
 sigma, gamma, beta, alpha, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, scale, rho_max, cushion = updateParameters(PARAMETERS_FILE)
 
 def run(b_start, args=None):
-
+    print("starting simulation with b_start=", b_start)
     global sigma, gamma, beta, alpha, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, dt
     if args is None:
         directory = "../my_swarming_results/distance/b_start_" + str(b_start)
