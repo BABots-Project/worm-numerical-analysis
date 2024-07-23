@@ -14,7 +14,7 @@ from numba import jit, vectorize, float32, njit, stencil, prange
 from GA import save_final_plot
 from swarming_simulator import gradientX, gradientY, laplacian, show
 
-PARAMETERS_FILE = "parameters_real_swarming2.txt"
+PARAMETERS_FILE = "best_odor.txt"
 
 l = 0.02
 N = 512
@@ -25,9 +25,9 @@ dxdx = dx ** 2
 dt = 0.01
 STEP_MAX = 500000
 
-ATTRACTANT = True
-REPELLENT = True
-V_RHO = True
+ATTRACTANT = False
+REPELLENT = False
+V_RHO = False
 RHO_0_FROM_FILE = True
 NUMBER_OF_SPOTS = 2
 NUMBER_OF_SPAWNS = 1
@@ -58,19 +58,38 @@ def updateParameters(textFileName):
             beta = float(lines[2].split(sep)[1])
             alpha = float(lines[3].split(sep)[1])
             D = float(lines[4].split(sep)[1])
-            beta_a = float(lines[5].split(sep)[1])
-            alpha_a = float(lines[6].split(sep)[1])
-            D_a = float(lines[7].split(sep)[1])
-            gamma_a = float(lines[8].split(sep)[1])
-            s_a = float(lines[9].split(sep)[1])
-            beta_r = float(lines[10].split(sep)[1])
-            alpha_r = float(lines[11].split(sep)[1])
-            D_r = float(lines[12].split(sep)[1])
-            gamma_r = float(lines[13].split(sep)[1])
-            s_r = float(lines[14].split(sep)[1])
-            scale = float(lines[15].split(sep)[1])
-            rho_max = float(lines[16].split(sep)[1])
-            cushion = float(lines[17].split(sep)[1])
+            if ATTRACTANT:
+                beta_a = float(lines[5].split(sep)[1])
+                alpha_a = float(lines[6].split(sep)[1])
+                D_a = float(lines[7].split(sep)[1])
+                gamma_a = float(lines[8].split(sep)[1])
+                s_a = float(lines[9].split(sep)[1])
+            else:
+                beta_a = 0
+                alpha_a = 0
+                D_a = 0
+                gamma_a = 0
+                s_a = 0
+            if REPELLENT:
+                beta_r = float(lines[10].split(sep)[1])
+                alpha_r = float(lines[11].split(sep)[1])
+                D_r = float(lines[12].split(sep)[1])
+                gamma_r = float(lines[13].split(sep)[1])
+                s_r = float(lines[14].split(sep)[1])
+            else:
+                beta_r = 0
+                alpha_r = 0
+                D_r = 0
+                gamma_r = 0
+                s_r = 0
+            if V_RHO:
+                scale = float(lines[15].split(sep)[1])
+                rho_max = float(lines[16].split(sep)[1])
+                cushion = float(lines[17].split(sep)[1])
+            else:
+                scale = 0
+                rho_max = 0
+                cushion = 0
             return sigma, gamma, beta, alpha, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, scale, rho_max, cushion
 
 
@@ -398,10 +417,31 @@ def evalute_two_spots():
     plt.legend()
     plt.show()
 
+
+def evalute_two_spots_diffusion(b_start):
+    c_a_list = []
+    c_b_list = []
+    max_d = 4.47 * 10 ** -9
+    min_d = 1.12 * 10 ** -9
+    delta_d = (max_d - min_d) / 10
+    d_list = list(np.arange(min_d, max_d, delta_d))
+    for custom_D in d_list:
+        # laod matrix from ../my_swarming_results/distance/b_start_{b_start}/rho_499999.npy
+        rho = np.load(f"../decision_making/2spots/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
+        c_a = rho[280:320, 360:400].sum() / rho.sum()
+        c_b = rho[280:320, b_start - 20:b_start + 20].sum() / rho.sum()
+        c_a_list.append(c_a)
+        c_b_list.append(c_b)
+    plt.plot(d_list, c_a_list, label="A")
+    plt.plot(d_list, c_b_list, label="B")
+    plt.legend()
+    plt.show()
+
 if __name__ == "__main__":
+    #evalute_two_spots_diffusion(int(sys.argv[1]))
 
 
-
+    #sys.exit()
     arg = sys.argv[1]
     if arg=="run":
 
