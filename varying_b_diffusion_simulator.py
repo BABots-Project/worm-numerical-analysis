@@ -186,7 +186,7 @@ class Simulator:
             self.b += dt * db
             self.rho += dt * drho
 
-            if LOGGING and self.timestep % 1000 == 0:
+            if LOGGING and self.timestep % 10000 == 0:
                 self.log_data()
 
             self.t += dt
