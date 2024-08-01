@@ -77,10 +77,10 @@ sigma, scale, rho_max, cushion, dt, beta_a, beta_r, alfa_a, alfa_r, D_a, D_r, ga
 #utility function to show a matrix using im.show()
 def show(matrix, directory):
     #invert y axis to have the origin in the bottom left corner
-    matrix = np.flipud(matrix)
+    #matrix = np.flipud(matrix)
     #set values that are less than 10e3 to 10e3
-    matrix[matrix < 10e3] = 10e3
-    plt.imshow(matrix, cmap='rainbow', interpolation='nearest', norm=LogNorm(vmin=10e3, vmax=np.max(matrix)))
+    #matrix[matrix < 10e3] = 10e3
+    plt.imshow(matrix, cmap='rainbow', interpolation='nearest')#, norm=LogNorm(vmin=10e3, vmax=np.max(matrix)))
     #plt.imshow(matrix, cmap='rainbow', interpolation='nearest')
     plt.gca().invert_yaxis()
     #plt.colorbar(label='rho')

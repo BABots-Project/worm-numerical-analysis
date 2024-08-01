@@ -3,3 +3,4 @@ gamma=0.0001
 beta=1.111e-8
 alpha=15e5
 D=1e-9
+rho0=120e6

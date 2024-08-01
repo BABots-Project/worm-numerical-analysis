@@ -14,7 +14,7 @@ from numba import jit, vectorize, float32, njit, stencil, prange
 from GA import save_final_plot
 from swarming_simulator import gradientX, gradientY, laplacian, show
 
-PARAMETERS_FILE = "best_odor.txt"
+PARAMETERS_FILE = "parameters_real_swarming.txt"
 
 l = 0.02
 N = 512
@@ -25,9 +25,9 @@ dxdx = dx ** 2
 dt = 0.01
 STEP_MAX = 500000
 
-ATTRACTANT = False
-REPELLENT = False
-V_RHO = False
+ATTRACTANT = True
+REPELLENT = True
+V_RHO = True
 RHO_0_FROM_FILE = True
 NUMBER_OF_SPOTS = 2
 NUMBER_OF_SPAWNS = 1
@@ -169,6 +169,7 @@ def initial_conditions_2_spots(rho0, size_of_spawn, size_of_a, size_of_b, ca0, c
 
     return rho, c, u_a, u_r, 0, 0
 
+
 def initial_conditions_from_center(rho0, gamma_a, s_a, gamma_r, s_r, b_start_y=132):
     #place worms in the center of the arena in a 40x40 square
     rho = np.zeros((N, N))
@@ -185,6 +186,7 @@ def initial_conditions_from_center(rho0, gamma_a, s_a, gamma_r, s_r, b_start_y=1
     u_r = s_r * gamma_r * rho
 
     return rho, U, u_a, u_r, 0, 0
+
 
 def save_parameters(directory, rho0):
     with open(directory + "/parameters.txt", "w") as file:
@@ -215,9 +217,12 @@ def run(params, args=None):
     print("starting simulation with b_start=", b_start)
     global sigma, gamma, beta, alpha, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, dt
     if args is None:
-        directory = "../my_swarming_results/distance/b_start_" + str(b_start) + "/D_" + str(custom_D)
-        #while os.path.isdir(directory):
-        #    directory = "../my_swarming_results/sim_" + str(int(directory.split("/")[-1].split("_")[-1]) + 1)
+        if b_start>0:
+            directory = "../my_swarming_results/distance/b_start_" + str(b_start) + "/D_" + str(custom_D)
+        else:
+            directory = "../my_swarming_results/sim_0"
+            while os.path.isdir(directory):
+                directory = "../my_swarming_results/sim_" + str(int(directory.split("/")[-1].split("_")[-1]) + 1)
     else:
         gen = str(args[0])
         i = str(args[1])
@@ -256,14 +261,7 @@ def run(params, args=None):
     if NUMBER_OF_SPOTS == 1:
         rho, U, Ua, Ur, t, step = initial_conditions(rho0, gamma_a, s_a, gamma_r, s_r)
     else:
-        size_of_spawn = SIZE_OF_SPAWN
-        size_of_a = SIZE_OF_A
-        size_of_b = SIZE_OF_B
-        ca0 = rho0
-        cb0 = rho0
-        rho, U, Ua, Ur, t, step = initial_conditions_2_spots(rho0, size_of_spawn, size_of_a, size_of_b, ca0, cb0, gamma_a, s_a, gamma_r, s_r)
-
-    rho, U, Ua, Ur, t, step = initial_conditions_from_center(rho0, gamma_a, s_a, gamma_r, s_r, b_start)
+        rho, U, Ua, Ur, t, step = initial_conditions_from_center(rho0, gamma_a, s_a, gamma_r, s_r, b_start)
     if not os.path.isdir(directory):
         os.makedirs(directory)
 
@@ -273,8 +271,8 @@ def run(params, args=None):
     pbar = tqdm(total=step_max)
     success = False
     sigma_times_scale = sigma * scale
-
-    D = custom_D
+    if custom_D>0:
+        D = custom_D
     while step < step_max:
 
         if time_integration == "euler":
@@ -291,9 +289,10 @@ def run(params, args=None):
             if REPELLENT:
                 V-= beta_r * np.log(alpha_r + Ur)
                 dUr = -gamma_r * Ur + D_r * laplacian(Ur) + s_r * rho
+                Ur = dUr * dt + Ur
             if V_RHO:
                 V+= sigma_times_scale*(1+np.tanh((rho - rho_max)/cushion))
-                Ur = dUr * dt + Ur
+
             drho = gradientX(rho * gradientX(V) + sigma * gradient_x_rho) + gradientY(
                 rho * gradientY(V) + sigma * gradient_y_rho)
 
@@ -417,34 +416,240 @@ def evalute_two_spots():
     plt.legend()
     plt.show()
 
-
-def evalute_two_spots_diffusion(b_start):
-    c_a_list = []
-    c_b_list = []
+def get_list_of_diffusions():
     max_d = 4.47 * 10 ** -9
     min_d = 1.12 * 10 ** -9
     delta_d = (max_d - min_d) / 10
     d_list = list(np.arange(min_d, max_d, delta_d))
+    return d_list
+
+def evalute_two_spots_diffusion(b_start, mode="odor"):
+    c_a_list = []
+    c_b_list = []
+    d_list = get_list_of_diffusions()
     for custom_D in d_list:
         # laod matrix from ../my_swarming_results/distance/b_start_{b_start}/rho_499999.npy
-        rho = np.load(f"../decision_making/2spots/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
+        if mode == "odor":
+            rho = np.load(f"../decision_making/2spots_only_odor/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
+        else:
+            rho = np.load(f"../decision_making/2spots/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
         c_a = rho[280:320, 360:400].sum() / rho.sum()
         c_b = rho[280:320, b_start - 20:b_start + 20].sum() / rho.sum()
         c_a_list.append(c_a)
         c_b_list.append(c_b)
-    plt.plot(d_list, c_a_list, label="A")
-    plt.plot(d_list, c_b_list, label="B")
-    plt.legend()
+    return c_a_list, c_b_list, d_list
+
+
+def get_time_for_quorum(quorum=0.7):
+    quorum = 0.7
+    timestep_for_quorum = 0
+    # custom_D = 1.4550000000000002e-09
+    custom_D = 2.125e-9
+    b_start = 40
+    # find the first time step at which the quorum is reached
+    for i in range(0, 500000, 10000):
+        rho = np.load(f"../decision_making/2spots/b_start_{b_start}/D_{custom_D}/rho_{i}.npy")
+        c_a = rho[280:320, 360:400].sum() / rho.sum()
+        c_b = rho[280:320, b_start - 20:b_start + 20].sum() / rho.sum()
+        if c_a > quorum or c_b > quorum:
+            timestep_for_quorum = i
+            break
+    print(timestep_for_quorum)
+    print("distance: ", round(((b_start - 256) ** 2 + (300 - 256) ** 2) ** (1 / 2), 2))
+
+
+def get_generic_heatmap(matrix, xs, ys, y_text, ax, show_yaxis):
+    img = ax.imshow(matrix, cmap="cool", interpolation='nearest')
+    # specify axis, round at second digit
+    # add title with cmap name
+    ax.set_xticks(range(len(xs)))
+    if show_yaxis:
+        ax.set_yticks(range(len(ys)))
+        ax.set_yticklabels(ys)
+        ax.set_ylabel(y_text, fontsize=45)
+        #set the title to "odor"
+        ax.set_title("odor", fontsize=45, loc="left", pad=20)
+
+    else:
+        ax.set_yticks([])
+        ax.set_title("pheromone", fontsize=45, loc="right", pad=20)
+
+    ax.set_xticklabels(xs)
+
+    # switch axis
+    #ax.invert_yaxis()
+    # set aspect ratio 1:1
+    ratio = 1.0
+    ax.tick_params(labelsize=25)
+    ax.set_xticklabels(xs, rotation=45, ha='right')
+    #ax.set_xlabel(x_text, fontsize=45)
+    if show_yaxis:
+        ax.set_ylabel(y_text, fontsize=45)
+    x_left, x_right = ax.get_xlim()
+    y_low, y_high = ax.get_ylim()
+    ax.set_aspect(abs((x_right - x_left) / (y_low - y_high)) * ratio)
+
+    return img
+
+
+def plot_two_heatmaps(matrix1, matrix2, xs, ys, x_text, y_text, cmap_text):
+    fig, axs = plt.subplots(1, 2, figsize=(20, 10))
+
+    img1 = get_generic_heatmap(matrix1, xs, ys, y_text, axs[0], True)
+    img2 = get_generic_heatmap(matrix2, xs, ys, y_text, axs[1], False)
+    fig.subplots_adjust(wspace=0.1)
+    clb = fig.colorbar(img1, ax=axs, location="top", shrink=0.5, pad=0.01, fraction=0.046)
+    clb.ax.set_title(cmap_text, fontsize=30)
+    clb.ax.tick_params(labelsize=25)
+    fig.text(0.5, 0.04, x_text, ha='center', va='center', fontsize=45)
     plt.show()
+
+
+def plot_generic_heatmap(matrix, xs, ys, x_text, y_text, cmap_text, lognorm=False, iter=-1):
+    if lognorm:
+        # Handle zeros in the matrix
+        matrix = np.where(matrix < 1e3, 1e3, matrix)
+
+    fig, ax = plt.subplots(figsize=(20, 20))
+    img = ax.imshow(matrix, cmap="cool", interpolation='nearest', norm=LogNorm() if lognorm else None)
+
+    # Set ticks and tick labels
+    ax.set_xticks(np.linspace(0, matrix.shape[1] - 1, len(xs)))
+    ax.set_xticklabels(xs)
+    ax.set_yticks(np.linspace(0, matrix.shape[0] - 1, len(ys)))
+    ax.set_yticklabels(ys)
+    ax.invert_yaxis()
+    # Customize tick and label sizes
+    ax.tick_params(labelsize=60)
+    plt.xticks(rotation=45)
+    ax.set_xlabel(x_text, fontsize=90, fontweight='bold')
+    ax.set_ylabel(y_text, fontsize=90, fontweight='bold')
+
+    # Add colorbar
+    clb = fig.colorbar(img, ax=ax, location="top", orientation="horizontal", shrink=0.5, pad=0.01, fraction=0.046)
+    clb.ax.set_title(cmap_text, fontsize=90, fontweight='bold')
+    clb.ax.tick_params(labelsize=60)
+
+    # Set aspect ratio
+    ratio = 1.0
+    x_left, x_right = ax.get_xlim()
+    y_low, y_high = ax.get_ylim()
+    ax.set_aspect(abs((x_right - x_left) / (y_low - y_high)) * ratio)
+    plt.tight_layout()
+    if iter != -1:
+        plt.savefig(f"../wivace_plots/fig2/sublot_{iter}.pdf", format="pdf")
+    else:
+        plt.show()
+
+def plot_heatmap_A_spot():
+    point_matrix = []  # will contain -1 if B is above quorum, 1 if A is above quorum, 0 if none is above quorum
+    # loop over b_start and D
+    for b_start in range(20, 256, 20):
+        point_list = []  # will contain -1 if B is above quorum, 1 if A is above quorum, 0 if none is above quorum
+        # loop over D is done in the function
+        # evaluate the two spots
+        c_a_list, c_b_list, d_list = evalute_two_spots_diffusion(b_start)
+        # check if A is above quorum
+
+        point_matrix.append(c_a_list)
+    xs = [round(d * 10 ** 9, 2) for d in d_list]
+    b_starts = list(range(20, 256, 20))
+    # convert b_starts to a list of distances from the center
+    ys = [round(((b_start - 256) ** 2 + (300 - 256) ** 2) ** (1 / 2), 2) for b_start in b_starts]
+    x_text = r'odor diffusion constant ($D\times 10^9$)'
+    y_text = 'distance of B from center'
+    cmap_text = 'relative worm density in A'
+    plot_generic_heatmap(point_matrix, xs, ys, x_text, y_text, cmap_text)
+
+
+def get_odor_and_pheromone_A_spot_heatmaps():
+    point_matrix1 = []  # will contain -1 if B is above quorum, 1 if A is above quorum, 0 if none is above quorum
+    point_matrix2 = []
+    # loop over b_start and D
+    for b_start in range(20, 256, 20):
+        point_list1 = []  # will contain -1 if B is above quorum, 1 if A is above quorum, 0 if none is above quorum
+        point_list2 = []
+        # loop over D is done in the function
+        # evaluate the two spots
+        c_a_list1, c_b_list1, d_list1 = evalute_two_spots_diffusion(b_start)
+        c_a_list2, c_b_list2, d_list2 = evalute_two_spots_diffusion(b_start, mode="both")
+        # check if A is above quorum
+
+        point_matrix1.append(c_a_list1)
+        point_matrix2.append(c_a_list2)
+    xs = [round(d * 10 ** 9, 2) for d in d_list1]
+    b_starts = list(range(20, 256, 20))
+    # convert b_starts to a list of distances from the center
+    ys = [round(((b_start - 256) ** 2 + (300 - 256) ** 2) ** (1 / 2), 2) for b_start in b_starts]
+    x_text = r'odor diffusion constant ($D\times 10^9$)'
+    y_text = 'distance of B from center'
+    cmap_text = 'relative worm density in A'
+    plot_two_heatmaps(point_matrix1, point_matrix2, xs, ys, x_text, y_text, cmap_text)
+
+def plot_heatmap_deadlock(quorum=0.7):
+    point_matrix = [] #basically regret: 0 if A is above quorum, 1-matrix[i][j] if B is above quorum and 1 otherwise
+    #loop over b_start and D
+    for b_start in range(20, 256, 20):
+        point_list = []
+        #loop over D is done in the function
+        #evaluate the two spots
+        c_a_list, c_b_list, d_list = evalute_two_spots_diffusion(b_start, mode="both")
+        #check if A is above quorum
+        for i in range(len(c_a_list)):
+            if c_a_list[i] > quorum:
+                point_list.append(0)
+            elif c_b_list[i] > quorum:
+                point_list.append(1-c_b_list[i])
+            else:
+                point_list.append(1.0)
+        point_matrix.append(point_list)
+    xs = [round(d*10**9, 2) for d in d_list]
+    b_starts = list(range(20, 256, 20))
+    #convert b_starts to a list of distances from the center
+    ys = [round(((b_start-256)**2 + (300-256)**2)**(1/2), 2) for b_start in b_starts]
+    x_text = r'odor diffusion constant ($D\times 10^9$)'
+    y_text = 'distance of B from center'
+    cmap_text = 'regret'
+    plot_generic_heatmap(point_matrix, xs, ys, x_text, y_text, cmap_text)
+
+
+#this function shows the heatmaps of the worm density in the initial (central) position of the grid for the odor and pheromone models at the last time step (of course)
+def get_initial_position_spot_heatmaps():
+    point_matrix1 = []
+    point_matrix2 = []
+    Ds = get_list_of_diffusions()
+    for b_start in range(20, 256, 20):
+        point_list1 = []
+        point_list2 = []
+        for D in Ds:
+            rho1 = np.load(f"../decision_making/2spots_only_odor/b_start_{b_start}/D_{D}/rho_499999.npy")
+            rho2 = np.load(f"../decision_making/2spots/b_start_{b_start}/D_{D}/rho_499999.npy")
+            center_density1 = rho1[236:276, 236:276].sum() / rho1.sum()
+            center_density2 = rho2[236:276, 236:276].sum() / rho2.sum()
+            point_list1.append(center_density1)
+            point_list2.append(center_density2)
+        point_matrix1.append(point_list1)
+        point_matrix2.append(point_list2)
+    xs = [round(d * 10 ** 9, 2) for d in Ds]
+    b_starts = list(range(20, 256, 20))
+    # convert b_starts to a list of distances from the center
+    ys = [round(((b_start - 256) ** 2 + (300 - 256) ** 2) ** (1 / 2), 2) for b_start in b_starts]
+    x_text = r'odor diffusion constant ($D\times 10^9$)'
+    y_text = 'distance of B from center'
+    cmap_text = 'relative worm density in center'
+    plot_two_heatmaps(point_matrix1, point_matrix2, xs, ys, x_text, y_text, cmap_text)
+
 
 if __name__ == "__main__":
     #evalute_two_spots_diffusion(int(sys.argv[1]))
-
-
+    #plot_heatmap_deadlock()
+    #get_initial_position_spot_heatmaps()
     #sys.exit()
     arg = sys.argv[1]
     if arg=="run":
-
+        params = (-1,-1)
+        run(params)
+        sys.exit()
         b_starts = list(range(20, 256, 20))
         max_d = 4.47*10**-9
         min_d = 1.12*10**-9
@@ -460,12 +665,13 @@ if __name__ == "__main__":
         from clustering2 import evaluate, create_matrix_from_tsv
 
         directory=f"../my_swarming_results/sim_{int(arg)}"
+        directory=f"../my_swarming_results_moving_and_diffusing_B/b_start_132/D_1e-09"
         #directory = f"../{arg}"
         #step=2091
         #c, kurt, bins, ys = evaluate(directory + f"/rho_{step}.npy", 50)
         #print(c)
         #show(np.load(directory + f"/rho_{step}.npy"))
-        video=True
+        video=False
         def build_video(dir_):
             rho_matrices = []
             #filtered_directory shall contained only the files with "rho" in their name and that end with ".npy"
@@ -515,15 +721,17 @@ if __name__ == "__main__":
         if video:
             build_video(directory)
         else:
-            j=499
+            j=499000
             m = np.load(directory + f"/rho_{j}.npy")
             c = get_clustering_metric(m)
             #print(c)
             show(m, directory)
 
-            for j in [0, 250000, 499999]:
+            for j in [0, 250000, 499000]:
                 m = np.load(directory + f"/rho_{j}.npy")
-                c = get_clustering_metric(m)
+                #c = get_clustering_metric(m)
+                c = m[236:276, 236:276].sum() / m.sum()
                 print(c)
-                show(m, directory)
+                #show(m, directory)
+                plot_generic_heatmap(m, range(0, 513, 128), range(0, 513, 128), "x", "y", r'density ($\rho$)', True)
         # #'''

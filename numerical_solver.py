@@ -10,6 +10,11 @@ indices = np.array([[(j - 2)%N, (j - 1)%N, (j + 1)%N, (j + 2)%N] for j in range(
 dx12 = 12 * dx
 dxdx = dx**2
 
+def divergence(in_array):
+    out = gradientX(in_array) + gradientY(in_array)
+    return out
+
+
 @njit(fastmath=True)
 def gradientX(in_array):
     out = np.zeros_like(in_array)
