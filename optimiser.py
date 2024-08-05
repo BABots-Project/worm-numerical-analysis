@@ -3,7 +3,7 @@ import math
 import random
 import time
 
-import swarming_simulator
+from old import swarming_simulator
 import numpy as np
 import matplotlib.pyplot as plt
 from instability_condition import criterion

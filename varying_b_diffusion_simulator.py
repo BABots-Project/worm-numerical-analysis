@@ -14,9 +14,9 @@ from numba import jit, vectorize, float32, njit, stencil, prange
 from GA import save_final_plot
 from numerical_solver import divergence
 from real_swarming_sim import plot_generic_heatmap
-from swarming_simulator import gradientX, gradientY, laplacian, show
+from old.swarming_simulator import gradientX, gradientY, laplacian, show
 
-PARAMETERS_FILE = "parameters_real_swarming.txt"
+
 l = 0.02
 N = 512
 dx = l / N
@@ -27,9 +27,7 @@ dt = 0.01
 STEP_MAX = 500000
 A_CENTER = (300, 380)
 CENTER_LOCATION = (N // 2, N // 2)
-ATTRACTANT = True
-REPELLENT = True
-V_RHO = True
+
 RHO_0_FROM_FILE = True
 NUMBER_OF_SPOTS = 2
 NUMBER_OF_SPAWNS = 1
@@ -39,7 +37,7 @@ EPSILON = 1e3
 
 class Simulator:
     def __init__(self, rho0, sigma, gamma, beta, alpha, D, D_B, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r,
-                 D_r, gamma_r, s_r, scale, rho_max, cushion, b_start_y=132):
+                 D_r, gamma_r, s_r, scale, rho_max, cushion, mode, parameter_file, b_start_y=132):
         self.rho0 = rho0
         self.sigma = sigma
         self.gamma = gamma
@@ -60,6 +58,16 @@ class Simulator:
         self.scale = scale
         self.rho_max = rho_max
         self.cushion = cushion
+        self.mode = mode
+        if self.mode == "odor":
+            self.attractant = False
+            self.repellent = False
+            self.v_rho = False
+        else:
+            self.attractant = True
+            self.repellent = True
+            self.v_rho = True
+        self.parameter_file = parameter_file
         self.sigma_times_scale = self.sigma * self.scale
         self.b_start_y = b_start_y
         self.rho = np.zeros((N, N))
@@ -73,8 +81,12 @@ class Simulator:
 
     def create_directory(self):
         if self.D_B > 0:
-            self.directory = "../my_swarming_results_moving_and_diffusing_B/b_start_" + str(
-                self.b_start_y) + "/D_" + str(self.D_B)
+            if self.mode=="odor":
+                self.directory = "../my_swarming_results/moving_and_diffusing_B/odor/b_start_" + str(
+                    self.b_start_y) + "/D_" + str(self.D_B)
+            else:
+                self.directory = "../my_swarming_results/moving_and_diffusing_B/pheromones/b_start_" + str(
+                    self.b_start_y) + "/D_" + str(self.D_B)
         else:
             self.directory = "../my_swarming_results/sim_0"
             while os.path.isdir(self.directory):
@@ -98,7 +110,7 @@ class Simulator:
         #plot_generic_heatmap(self.b, range(0, 513, 128), range(0, 513, 128), "x", "y", 'B', True)
 
     def save_parameters(self):
-        with open(self.directory + "/" + PARAMETERS_FILE, "w") as f:
+        with open(self.directory + "/parameters.txt", "w") as f:
             f.write("rho0: " + str(self.rho0) + "\n")
             f.write("sigma: " + str(self.sigma) + "\n")
             f.write("gamma: " + str(self.gamma) + "\n")
@@ -155,8 +167,10 @@ class Simulator:
         np.save(self.directory + "/rho_" + str(self.timestep), self.rho)
         np.save(self.directory + "/a_" + str(self.timestep), self.a)
         np.save(self.directory + "/b_" + str(self.timestep), self.b)
-        np.save(self.directory + "/ua_" + str(self.timestep), self.ua)
-        np.save(self.directory + "/ur_" + str(self.timestep), self.ur)
+        if self.attractant:
+            np.save(self.directory + "/ua_" + str(self.timestep), self.ua)
+        if self.repellent:
+            np.save(self.directory + "/ur_" + str(self.timestep), self.ur)
 
     def run(self):
         self.create_directory()
@@ -169,19 +183,29 @@ class Simulator:
             gradient_x_rho = gradientX(self.rho)
             gradient_y_rho = gradientY(self.rho)
             potential_odor = -self.beta * np.log(self.alpha + self.a + self.b)
-            potential_attractant = -self.beta_a * np.log(self.alpha_a + self.ua)
-            potential_repellent = -self.beta_r * np.log(self.alpha_r + self.ur)
-            potential_squeeze = self.sigma_times_scale * (1 + np.tanh((self.rho - self.rho_max) / self.cushion))
+            if self.attractant:
+                potential_attractant = -self.beta_a * np.log(self.alpha_a + self.ua)
+                dua = -self.gamma_a * self.ua + self.D_a * laplacian(self.ua) + self.s_a * self.rho
+                self.ua += dt * dua
+            else:
+                potential_attractant = 0
+            if self.repellent:
+                potential_repellent = -self.beta_r * np.log(self.alpha_r + self.ur)
+                dur = -self.gamma_r * self.ur + self.D_r * laplacian(self.ur) + self.s_r * self.rho
+                self.ur += dt * dur
+            else:
+                potential_repellent = 0
+            if self.v_rho:
+                potential_squeeze = self.sigma_times_scale * (1 + np.tanh((self.rho - self.rho_max) / self.cushion))
+            else:
+                potential_squeeze = 0
             potential = potential_odor + potential_attractant + potential_repellent + potential_squeeze
 
-            dua = -self.gamma_a * self.ua + self.D_a * laplacian(self.ua) + self.s_a * self.rho
-            dur = -self.gamma_r * self.ur + self.D_r * laplacian(self.ur) + self.s_r * self.rho
             drho = gradientX(self.rho * gradientX(potential) + self.sigma * gradient_x_rho) + gradientY(
                 self.rho * gradientY(potential) + self.sigma * gradient_y_rho)
             da = -self.gamma * self.a + self.D * laplacian(self.a)
             db = -self.gamma * self.b + self.D_B * laplacian(self.b)
-            self.ua += dt * dua
-            self.ur += dt * dur
+
             self.a += dt * da
             self.b += dt * db
             self.rho += dt * drho

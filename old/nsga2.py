@@ -45,7 +45,7 @@ class SwarmingOptimizationProblem(ElementwiseProblem):
 
     def _evaluate(self, x, out, *args, **kwargs):
         gen, i = args  # Generation and individual index
-        parameter_dir = "parameters_swarming_optimised.json"
+        parameter_dir = "../parameters_swarming_optimised.json"
 
         # Prepare args for the simulator
         sim_args = [gen, i, parameter_dir]

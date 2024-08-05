@@ -626,7 +626,7 @@ if __name__ == "__main__":
     print(best_individual_list)
     print(best_fitness_list)
     #save the best individual and its fitness
-    with open("best_individual.txt", "w") as f:
+    with open("old/best_individual.txt", "w") as f:
         f.write("best individual: " + str(best_individual_list[-1]) + "\n")
         f.write("best fitness: " + str(best_fitness_list[-1]) + "\n")
     print("best individual: ", best_individual_list[-1])

@@ -1,4 +1,3 @@
-import multiprocessing
 from datetime import datetime
 import random
 
@@ -9,10 +8,9 @@ from matplotlib.colors import LogNorm
 from skimage.transform import resize
 import os, sys
 from tqdm import tqdm
-from numba import jit, vectorize, float32, njit, stencil, prange
 
 from GA import save_final_plot
-from swarming_simulator import gradientX, gradientY, laplacian, show
+from old.swarming_simulator import gradientX, gradientY, laplacian, show
 
 PARAMETERS_FILE = "parameters_real_swarming.txt"
 
@@ -29,7 +27,7 @@ ATTRACTANT = True
 REPELLENT = True
 V_RHO = True
 RHO_0_FROM_FILE = True
-NUMBER_OF_SPOTS = 2
+NUMBER_OF_SPOTS = 1
 NUMBER_OF_SPAWNS = 1
 SIZE_OF_A = 160 #TOP RIGHT -- sizes are 2x (total size of spawn)
 SIZE_OF_B = 160 #BOTTOM LEFT
@@ -218,11 +216,11 @@ def run(params, args=None):
     global sigma, gamma, beta, alpha, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, dt
     if args is None:
         if b_start>0:
-            directory = "../my_swarming_results/distance/b_start_" + str(b_start) + "/D_" + str(custom_D)
+            directory = "../my_swarming_results/distance_phero/b_start_" + str(b_start) + "/D_" + str(custom_D)
         else:
-            directory = "../my_swarming_results/sim_0"
+            directory = "../wivace_plots/runs/sim_0"
             while os.path.isdir(directory):
-                directory = "../my_swarming_results/sim_" + str(int(directory.split("/")[-1].split("_")[-1]) + 1)
+                directory = "../wivace_plots/runs/sim_" + str(int(directory.split("/")[-1].split("_")[-1]) + 1)
     else:
         gen = str(args[0])
         i = str(args[1])
@@ -267,6 +265,7 @@ def run(params, args=None):
 
     #save parameters in the directory
     save_parameters(directory, rho0)
+    print("saving into: ", directory)
     # Main loop
     pbar = tqdm(total=step_max)
     success = False
@@ -430,7 +429,8 @@ def evalute_two_spots_diffusion(b_start, mode="odor"):
     for custom_D in d_list:
         # laod matrix from ../my_swarming_results/distance/b_start_{b_start}/rho_499999.npy
         if mode == "odor":
-            rho = np.load(f"../decision_making/2spots_only_odor/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
+            #rho = np.load(f"../decision_making/2spots_only_odor/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
+            rho = np.load(f"../my_swarming_results_moving_and_diffusing_B/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
         else:
             rho = np.load(f"../decision_making/2spots/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
         c_a = rho[280:320, 360:400].sum() / rho.sum()
@@ -530,6 +530,16 @@ def plot_generic_heatmap(matrix, xs, ys, x_text, y_text, cmap_text, lognorm=Fals
     clb.ax.set_title(cmap_text, fontsize=90, fontweight='bold')
     clb.ax.tick_params(labelsize=60)
 
+    # Draw a red non-filled square around the center (256, 256) with a size of 40x40 cells
+    center_x, center_y = 256, 256
+    square_size = 40
+    lower_left_x = center_x - square_size // 2
+    lower_left_y = center_y - square_size // 2
+
+    # Use a rectangle patch with dotted line style
+    rect = plt.Rectangle((lower_left_x, lower_left_y), square_size, square_size,
+                         linewidth=3, edgecolor='black', facecolor='none', linestyle='--')
+    ax.add_patch(rect)
     # Set aspect ratio
     ratio = 1.0
     x_left, x_right = ax.get_xlim()
@@ -537,7 +547,7 @@ def plot_generic_heatmap(matrix, xs, ys, x_text, y_text, cmap_text, lognorm=Fals
     ax.set_aspect(abs((x_right - x_left) / (y_low - y_high)) * ratio)
     plt.tight_layout()
     if iter != -1:
-        plt.savefig(f"../wivace_plots/fig2/sublot_{iter}.pdf", format="pdf")
+        plt.savefig(f"../wivace_plots/fig1/sublot_{iter}_phero.pdf", format="pdf")
     else:
         plt.show()
 
@@ -607,10 +617,12 @@ def plot_heatmap_deadlock(quorum=0.7):
     b_starts = list(range(20, 256, 20))
     #convert b_starts to a list of distances from the center
     ys = [round(((b_start-256)**2 + (300-256)**2)**(1/2), 2) for b_start in b_starts]
-    x_text = r'odor diffusion constant ($D\times 10^9$)'
+    x_text = r'odor diffusion ($D\times 10^9$)'
     y_text = 'distance of B from center'
     cmap_text = 'regret'
-    plot_generic_heatmap(point_matrix, xs, ys, x_text, y_text, cmap_text)
+    #convert point_matrix to a numpy array
+    point_matrix = np.array(point_matrix)
+    plot_generic_heatmap(point_matrix, xs, ys, x_text, y_text, cmap_text, lognorm=False, iter=5000)
 
 
 #this function shows the heatmaps of the worm density in the initial (central) position of the grid for the odor and pheromone models at the last time step (of course)
@@ -640,10 +652,178 @@ def get_initial_position_spot_heatmaps():
     plot_two_heatmaps(point_matrix1, point_matrix2, xs, ys, x_text, y_text, cmap_text)
 
 
+def plot_matrix_scatter(matrices, theta, x_text, y_text, xs, ys):
+    """
+    Plots a scatter plot of the matrix values with colors based on a threshold.
+
+    Parameters:
+    matrix (numpy.ndarray): The input matrix.
+    theta (float): The threshold for coloring the points.
+
+    Colors:
+    - Blue if value > theta
+    - Red if value < theta
+    - Yellow if value == theta
+    """
+    matrix, matrixB = matrices
+    # Get the dimensions of the matrix
+    rows, cols = matrix.shape
+
+    # Prepare the data for plotting
+    x, y = np.meshgrid(range(cols), range(rows))
+
+    # Flatten the arrays for scatter plot
+    x_flat = x.flatten()
+    y_flat = y.flatten()
+    values_flat = matrix.flatten()
+    values_flat_B = matrixB.flatten()
+
+    # Determine the color for each point
+    colors = np.where(values_flat > theta, 'cyan',
+                      np.where(values_flat_B > theta, 'magenta', 'black'))
+
+    # Create the scatter plot
+    plt.figure(figsize=(30, 30))
+    plt.scatter(x_flat, y_flat, c=colors, s=1400, edgecolors='k', linewidths=0.5)
+    plt.title('pheromones', fontsize=90, fontweight='bold')
+    # Add labels and title
+    ax = plt.gca()
+    ax.set_xticks(np.linspace(0, matrix.shape[1] - 1, len(xs)))
+    ax.set_xticklabels(xs)
+    ax.set_yticks(np.linspace(0, matrix.shape[0] - 1, len(ys)))
+    ax.set_yticklabels(ys)
+    ax.invert_yaxis()
+    # Customize tick and label sizes
+    ax.tick_params(labelsize=60)
+    plt.xticks(rotation=45)
+    ax.set_xlabel(x_text, fontsize=90, fontweight='bold')
+    ax.set_ylabel(y_text, fontsize=90, fontweight='bold')
+    plt.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
+    ratio = 1.0
+    x_left, x_right = ax.get_xlim()
+    y_low, y_high = ax.get_ylim()
+    ax.set_aspect(abs((x_right - x_left) / (y_low - y_high)) * ratio)
+    # Create legend
+    legend_labels = {
+        'blue': 'Decision for A',
+        'red': 'Decision for B',
+        'yellow': 'Deadlock'
+    }
+
+    # Plot invisible points for legend
+    for color, label in legend_labels.items():
+        plt.scatter([], [], c=color, label=label, s=1200, edgecolors='k', linewidths=0.5)
+
+    # Position the legend outside the plot
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5), title='', fontsize=30, title_fontsize=30, shadow=True, fancybox=True)
+
+    # Adjust layout to make space for the legend
+    #plt.tight_layout(rect=[0, 0, 0.85, 1])
+
+    plt.tight_layout(rect=[0, 0, 0.85, 1])
+    # Display the plot
+    plt.savefig(f"../wivace_plots/fig6/sublot_2_phero.pdf", format="pdf")
+    plt.show()
+
+def get_density_in_A_and_B():
+    #loop over b_start and D
+    point_matrix_A  = []
+    point_matrix_B = []
+    for b_start in range(20, 256, 20):
+        #loop over D is done in the function
+        #evaluate the two spots
+        c_a_list, c_b_list, d_list = evalute_two_spots_diffusion(b_start, "odor")
+        point_matrix_A.append(c_a_list)
+        point_matrix_B.append(c_b_list)
+    #convert point_matrix to a numpy array
+    point_matrix_A = np.array(point_matrix_A)
+    point_matrix_B = np.array(point_matrix_B)
+    xs = [round(d * 10 ** 9, 2) for d in d_list]
+    b_starts = list(range(20, 256, 20))
+    # convert b_starts to a list of distances from the center
+    ys = [round(((b_start - 256) ** 2 + (300 - 256) ** 2) ** (1 / 2), 2) for b_start in b_starts]
+    x_text = r'odor diffusion ($D\times 10^9$)'
+    y_text = 'distance of B'
+    #plot_matrix_scatter((point_matrix_A, point_matrix_B), 0.7, x_text, y_text, xs, ys)
+    plot_phase_separation(point_matrix_A, point_matrix_B, 0.7, x_text, y_text, xs, ys)
+
+def plot_phase_separation(matrix_A, matrix_B, theta, x_text, y_text, xs, ys):
+    """
+    Plots a phase separation diagram of the matrix values with regions colored
+    based on a threshold, and adds a legend indicating the decision associated with each region.
+
+    Parameters:
+    matrix (numpy.ndarray): The input matrix.
+    theta (float): The threshold for separating the regions.
+
+    Regions:
+    - A: matrix > theta (blue)
+    - B: 1 - matrix > theta (red)
+    - C: Otherwise (yellow)
+    """
+    # Get the dimensions of the matrix
+    rows, cols = matrix_A.shape
+
+    # Prepare the data for plotting
+    x, y = np.meshgrid(range(cols), range(rows))
+
+    # Create a mask for each region
+    region_a = matrix_A > theta
+    region_b = matrix_B > theta
+    region_c = ~(region_a | region_b)  # Use logical NOT to find region C
+
+    # Create a new figure
+    plt.figure(figsize=(8, 6))
+
+    # Fill regions with different colors
+    plt.contourf(x, y, region_a, levels=[0, 0.5, 1], colors=['none', 'blue'], alpha=0.3)
+    plt.contourf(x, y, region_b, levels=[0, 0.5, 1], colors=['none', 'red'], alpha=0.3)
+    plt.contourf(x, y, region_c, levels=[0, 0.5, 1], colors=['none', 'yellow'], alpha=0.5)
+
+    # Overlay contour lines for clarity
+    plt.contour(x, y, region_a, levels=[0.5], colors='blue', linestyles='--')
+    plt.contour(x, y, region_b, levels=[0.5], colors='red', linestyles='--')
+    plt.contour(x, y, region_c, levels=[0.5], colors='yellow', linestyles='--')
+
+    # Add labels and title
+    ax = plt.gca()
+    ax.set_xticks(np.linspace(0, matrix_A.shape[1] - 1, len(xs)))
+    ax.set_xticklabels(xs)
+    ax.set_yticks(np.linspace(0, matrix_A.shape[0] - 1, len(ys)))
+    ax.set_yticklabels(ys)
+    ax.invert_yaxis()
+    # Customize tick and label sizes
+    ax.tick_params(labelsize=20)
+    plt.xticks(rotation=45)
+    ax.set_xlabel(x_text, fontsize=20, fontweight='bold')
+    ax.set_ylabel(y_text, fontsize=20, fontweight='bold')
+    plt.title('Phase Separation Diagram Pheromone', fontsize=16, pad=20, loc='right')
+
+    plt.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
+
+    # Add legend with larger text and place it on top
+    handles = [
+        plt.Line2D([0], [0], color='blue', lw=4, label='decision for A'),
+        plt.Line2D([0], [0], color='red', lw=4, label='decision for B'),
+        plt.Line2D([0], [0], color='yellow', lw=4, label='deadlock')
+    ]
+    plt.legend(handles=handles, loc='upper right', bbox_to_anchor=(0.5, 1.15),
+               title='Regions', fontsize=12, title_fontsize=14, ncol=3)
+
+    # Adjust layout to make space for the legend
+    plt.tight_layout(rect=[0, 0, 1, 0.9])
+
+    # Display the plot
+    plt.show()
+
+
 if __name__ == "__main__":
     #evalute_two_spots_diffusion(int(sys.argv[1]))
+    get_density_in_A_and_B()
+    #plot_generic_heatmap(np.load("../decision_making/2spots_only_odor/b_start_132/D_1e-09/rho_499999.npy"), [], [], "", "", "", lognorm=False)
+
     #plot_heatmap_deadlock()
-    #get_initial_position_spot_heatmaps()
+    #get_odor_and_pheromone_A_spot_heatmaps()
     #sys.exit()
     arg = sys.argv[1]
     if arg=="run":
@@ -662,10 +842,10 @@ if __name__ == "__main__":
         #run()
     #
     else:
-        from clustering2 import evaluate, create_matrix_from_tsv
 
         directory=f"../my_swarming_results/sim_{int(arg)}"
-        directory=f"../my_swarming_results_moving_and_diffusing_B/b_start_132/D_1e-09"
+        #directory=f"../my_swarming_results_moving_and_diffusing_B/b_start_132/D_1e-09"
+        #directory= "../my_swarming_results/distance/b_start_132/D_-1"
         #directory = f"../{arg}"
         #step=2091
         #c, kurt, bins, ys = evaluate(directory + f"/rho_{step}.npy", 50)
@@ -721,17 +901,20 @@ if __name__ == "__main__":
         if video:
             build_video(directory)
         else:
-            j=499000
+            j=499999
             m = np.load(directory + f"/rho_{j}.npy")
             c = get_clustering_metric(m)
             #print(c)
             show(m, directory)
 
-            for j in [0, 250000, 499000]:
+            for j in [0, 250000, 499999]:
                 m = np.load(directory + f"/rho_{j}.npy")
                 #c = get_clustering_metric(m)
                 c = m[236:276, 236:276].sum() / m.sum()
-                print(c)
+                c = m[280:320, 360:400].sum() / m.sum()
+                print("A: ", c)
+                c = m[280:320, 104:144].sum() / m.sum()
+                print("B: ", c)
                 #show(m, directory)
-                plot_generic_heatmap(m, range(0, 513, 128), range(0, 513, 128), "x", "y", r'density ($\rho$)', True)
+                plot_generic_heatmap(m, range(0, 513, 128), range(0, 513, 128), "x", "y", r'density ($\rho$)', True, iter=j)
         # #'''
