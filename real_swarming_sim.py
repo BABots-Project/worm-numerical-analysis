@@ -12,7 +12,7 @@ from tqdm import tqdm
 from GA import save_final_plot
 from old.swarming_simulator import gradientX, gradientY, laplacian, show
 
-PARAMETERS_FILE = "parameters_real_swarming.txt"
+PARAMETERS_FILE = "parameters/base_individual.txt"
 
 l = 0.02
 N = 512
@@ -27,7 +27,10 @@ ATTRACTANT = True
 REPELLENT = True
 V_RHO = True
 RHO_0_FROM_FILE = True
-NUMBER_OF_SPOTS = 1
+
+ASK_PERMISSION = False
+
+NUMBER_OF_SPOTS = 2
 NUMBER_OF_SPAWNS = 1
 SIZE_OF_A = 160 #TOP RIGHT -- sizes are 2x (total size of spawn)
 SIZE_OF_B = 160 #BOTTOM LEFT
@@ -264,8 +267,13 @@ def run(params, args=None):
         os.makedirs(directory)
 
     #save parameters in the directory
+    if ASK_PERMISSION:
+        user_acceptance = input(f"Do you want to save the parameters in the directory {directory}? (y/n)")
+        if user_acceptance.lower() == "n":
+            print("Aborting.")
+            return
     save_parameters(directory, rho0)
-    print("saving into: ", directory)
+
     # Main loop
     pbar = tqdm(total=step_max)
     success = False
@@ -430,7 +438,7 @@ def evalute_two_spots_diffusion(b_start, mode="odor"):
         # laod matrix from ../my_swarming_results/distance/b_start_{b_start}/rho_499999.npy
         if mode == "odor":
             #rho = np.load(f"../decision_making/2spots_only_odor/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
-            rho = np.load(f"../my_swarming_results_moving_and_diffusing_B/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
+            rho = np.load(f"../my_swarming_results/moving_and_diffusing_B/odor/b_start_{b_start}/D_{custom_D}/rho_500000.npy")
         else:
             rho = np.load(f"../decision_making/2spots/b_start_{b_start}/D_{custom_D}/rho_499999.npy")
         c_a = rho[280:320, 360:400].sum() / rho.sum()
@@ -505,7 +513,16 @@ def plot_two_heatmaps(matrix1, matrix2, xs, ys, x_text, y_text, cmap_text):
     plt.show()
 
 
-def plot_generic_heatmap(matrix, xs, ys, x_text, y_text, cmap_text, lognorm=False, iter=-1):
+def get_rectangle(center_x, center_y, square_size):
+    lower_left_x = center_x - square_size // 2
+    lower_left_y = center_y - square_size // 2
+
+    # Use a rectangle patch with dotted line style
+    rect = plt.Rectangle((lower_left_x, lower_left_y), square_size, square_size,
+                         linewidth=3, edgecolor='black', facecolor='none', linestyle='--')
+    return rect
+
+def plot_generic_heatmap(matrix, xs, ys, x_text, y_text, cmap_text, lognorm=False, square=0, iter=-1):
     if lognorm:
         # Handle zeros in the matrix
         matrix = np.where(matrix < 1e3, 1e3, matrix)
@@ -529,17 +546,20 @@ def plot_generic_heatmap(matrix, xs, ys, x_text, y_text, cmap_text, lognorm=Fals
     clb = fig.colorbar(img, ax=ax, location="top", orientation="horizontal", shrink=0.5, pad=0.01, fraction=0.046)
     clb.ax.set_title(cmap_text, fontsize=90, fontweight='bold')
     clb.ax.tick_params(labelsize=60)
-
+    if square==1:
     # Draw a red non-filled square around the center (256, 256) with a size of 40x40 cells
-    center_x, center_y = 256, 256
-    square_size = 40
-    lower_left_x = center_x - square_size // 2
-    lower_left_y = center_y - square_size // 2
+        rect = get_rectangle(256, 256, 40)
+        ax.add_patch(rect)
 
-    # Use a rectangle patch with dotted line style
-    rect = plt.Rectangle((lower_left_x, lower_left_y), square_size, square_size,
-                         linewidth=3, edgecolor='black', facecolor='none', linestyle='--')
-    ax.add_patch(rect)
+    elif square==2:
+        #draw 2 black non-filled squares around (300,380) and (300, 132) with a size of 40x40 cells
+        center_x, center_y = 380,300
+        square_size = 40
+        rect = get_rectangle(center_x, center_y, square_size)
+        ax.add_patch(rect)
+        center_x, center_y = 132,300
+        rect = get_rectangle(center_x, center_y, square_size)
+        ax.add_patch(rect)
     # Set aspect ratio
     ratio = 1.0
     x_left, x_right = ax.get_xlim()
@@ -547,7 +567,7 @@ def plot_generic_heatmap(matrix, xs, ys, x_text, y_text, cmap_text, lognorm=Fals
     ax.set_aspect(abs((x_right - x_left) / (y_low - y_high)) * ratio)
     plt.tight_layout()
     if iter != -1:
-        plt.savefig(f"../wivace_plots/fig1/sublot_{iter}_phero.pdf", format="pdf")
+        plt.savefig(f"../wivace_plots/fig3/phero/sublot_{iter}_phero.pdf", format="pdf")
     else:
         plt.show()
 
@@ -797,7 +817,7 @@ def plot_phase_separation(matrix_A, matrix_B, theta, x_text, y_text, xs, ys):
     plt.xticks(rotation=45)
     ax.set_xlabel(x_text, fontsize=20, fontweight='bold')
     ax.set_ylabel(y_text, fontsize=20, fontweight='bold')
-    plt.title('Phase Separation Diagram Pheromone', fontsize=16, pad=20, loc='right')
+    plt.title('Phase Separation Diagram Odor', fontsize=16, pad=20, loc='right')
 
     plt.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
 
@@ -819,7 +839,7 @@ def plot_phase_separation(matrix_A, matrix_B, theta, x_text, y_text, xs, ys):
 
 if __name__ == "__main__":
     #evalute_two_spots_diffusion(int(sys.argv[1]))
-    get_density_in_A_and_B()
+    #get_density_in_A_and_B()
     #plot_generic_heatmap(np.load("../decision_making/2spots_only_odor/b_start_132/D_1e-09/rho_499999.npy"), [], [], "", "", "", lognorm=False)
 
     #plot_heatmap_deadlock()
@@ -844,6 +864,7 @@ if __name__ == "__main__":
     else:
 
         directory=f"../my_swarming_results/sim_{int(arg)}"
+        directory = f"../wivace_plots/runs/sim_{int(arg)}"
         #directory=f"../my_swarming_results_moving_and_diffusing_B/b_start_132/D_1e-09"
         #directory= "../my_swarming_results/distance/b_start_132/D_-1"
         #directory = f"../{arg}"
@@ -901,20 +922,22 @@ if __name__ == "__main__":
         if video:
             build_video(directory)
         else:
-            j=499999
+            final = 500000
+            j=final
             m = np.load(directory + f"/rho_{j}.npy")
             c = get_clustering_metric(m)
             #print(c)
             show(m, directory)
 
-            for j in [0, 250000, 499999]:
+            for j in [0, 250000, final]:
                 m = np.load(directory + f"/rho_{j}.npy")
                 #c = get_clustering_metric(m)
                 c = m[236:276, 236:276].sum() / m.sum()
+                print("center: ", c)
                 c = m[280:320, 360:400].sum() / m.sum()
                 print("A: ", c)
                 c = m[280:320, 104:144].sum() / m.sum()
                 print("B: ", c)
                 #show(m, directory)
-                plot_generic_heatmap(m, range(0, 513, 128), range(0, 513, 128), "x", "y", r'density ($\rho$)', True, iter=j)
+                plot_generic_heatmap(m, range(0, 513, 128), range(0, 513, 128), "x", "y", r'density ($\rho$)', True, square=2, iter=j)
         # #'''

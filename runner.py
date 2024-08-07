@@ -5,7 +5,7 @@ import concurrent.futures
 from varying_b_diffusion_simulator import Simulator
 OPTIMAL_ODOR_PARAMETERS_FILE = "parameters/optimised_odor.txt"
 OPTIMAL_PHEROMONES_PARAMETERS_FILE = "parameters/optimised_pheromones.txt"
-BASE_PARAMETERS_FILE = "parameters/base_parameters.txt"
+BASE_PARAMETERS_FILE = "parameters/base_individual.txt"
 mode = sys.argv[1]
 if mode == "odor":
     PARAMETERS_FILE = OPTIMAL_ODOR_PARAMETERS_FILE
@@ -60,13 +60,18 @@ def updateParameters(textFileName):
                 cushion = 0
             return sigma, gamma, beta, alpha, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, scale, rho_max, cushion
 
-sigma, gamma, beta, alpha, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, scale, rho_max, cushion = updateParameters(PARAMETERS_FILE)
-with open(PARAMETERS_FILE, 'r') as file:
+
+parameter_file = PARAMETERS_FILE
+sigma, gamma, beta, alpha, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, scale, rho_max, cushion = updateParameters(parameter_file)
+with open(parameter_file, 'r') as file:
     lines = file.readlines()
     rho0 = float(lines[-1].split("=")[1])
 
-#sim = Simulator(rho0, sigma, gamma, beta, alpha, D, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, scale, rho_max, cushion)
-#sim.run()
+'''b_start = 132
+sim = Simulator(rho0, sigma, gamma, beta, alpha, D, D, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, scale, rho_max, cushion, mode, parameter_file, b_start, True)
+print("rho0: ", rho0)
+sim.run()
+sys.exit()'''
 def run_simulation(simulator):
     simulator.run()
 
@@ -77,7 +82,7 @@ delta_d = (max_d - min_d) / 10
 d_list = list(np.arange(min_d, max_d, delta_d))
 simulators = []
 
-parameter_file = PARAMETERS_FILE
+#parameter_file = PARAMETERS_FILE
 for b_start in b_starts:
     for D_B in d_list:
         sim = Simulator(rho0, sigma, gamma, beta, alpha, D, D_B, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r, D_r, gamma_r, s_r, scale, rho_max, cushion, mode, parameter_file, b_start)

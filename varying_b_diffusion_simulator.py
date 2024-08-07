@@ -37,7 +37,7 @@ EPSILON = 1e3
 
 class Simulator:
     def __init__(self, rho0, sigma, gamma, beta, alpha, D, D_B, beta_a, alpha_a, D_a, gamma_a, s_a, beta_r, alpha_r,
-                 D_r, gamma_r, s_r, scale, rho_max, cushion, mode, parameter_file, b_start_y=132):
+                 D_r, gamma_r, s_r, scale, rho_max, cushion, mode, parameter_file, b_start_y=132, equal_a_and_b=False):
         self.rho0 = rho0
         self.sigma = sigma
         self.gamma = gamma
@@ -67,12 +67,14 @@ class Simulator:
             self.attractant = True
             self.repellent = True
             self.v_rho = True
+        self.equal_a_and_b = equal_a_and_b
         self.parameter_file = parameter_file
         self.sigma_times_scale = self.sigma * self.scale
         self.b_start_y = b_start_y
         self.rho = np.zeros((N, N))
         self.a = np.zeros((N, N))  # spot A
-        self.b = np.zeros((N, N))  # spot B
+        if not equal_a_and_b:
+            self.b = np.zeros((N, N))  # spot B
         self.ua = np.zeros((N, N))
         self.ur = np.zeros((N, N))
         self.directory = ""
@@ -101,7 +103,10 @@ class Simulator:
         self.rho[CENTER_LOCATION[0] - 20:CENTER_LOCATION[0] + 20,
         CENTER_LOCATION[1] - 20:CENTER_LOCATION[1] + 20] = self.rho0 + self.rho0 * random.uniform(-0.01, 0.01)
         #for now i assume to use a varying D and a varying location for the B spot.
-        self.b[280:320, self.b_start_y-20:self.b_start_y+20] = self.rho0
+        if self.equal_a_and_b:
+            self.a[280:320, self.b_start_y - 20:self.b_start_y + 20] = self.rho0
+        else:
+            self.b[280:320, self.b_start_y-20:self.b_start_y+20] = self.rho0
         self.a[A_CENTER[0] - 20:A_CENTER[0] + 20, A_CENTER[1] - 20:A_CENTER[1] + 20] = self.rho0
         self.ua = self.s_a * self.gamma_a * self.rho
         self.ur = self.s_r * self.gamma_r * self.rho
@@ -166,7 +171,8 @@ class Simulator:
     def log_data(self):
         np.save(self.directory + "/rho_" + str(self.timestep), self.rho)
         np.save(self.directory + "/a_" + str(self.timestep), self.a)
-        np.save(self.directory + "/b_" + str(self.timestep), self.b)
+        if not self.equal_a_and_b:
+            np.save(self.directory + "/b_" + str(self.timestep), self.b)
         if self.attractant:
             np.save(self.directory + "/ua_" + str(self.timestep), self.ua)
         if self.repellent:
@@ -182,7 +188,10 @@ class Simulator:
         while self.timestep < STEP_MAX and not success:
             gradient_x_rho = gradientX(self.rho)
             gradient_y_rho = gradientY(self.rho)
-            potential_odor = -self.beta * np.log(self.alpha + self.a + self.b)
+            if self.equal_a_and_b:
+                potential_odor = -self.beta * np.log(self.alpha + self.a)
+            else:
+                potential_odor = -self.beta * np.log(self.alpha + self.a + self.b)
             if self.attractant:
                 potential_attractant = -self.beta_a * np.log(self.alpha_a + self.ua)
                 dua = -self.gamma_a * self.ua + self.D_a * laplacian(self.ua) + self.s_a * self.rho
@@ -204,10 +213,12 @@ class Simulator:
             drho = gradientX(self.rho * gradientX(potential) + self.sigma * gradient_x_rho) + gradientY(
                 self.rho * gradientY(potential) + self.sigma * gradient_y_rho)
             da = -self.gamma * self.a + self.D * laplacian(self.a)
-            db = -self.gamma * self.b + self.D_B * laplacian(self.b)
+            if not self.equal_a_and_b:
+                db = -self.gamma * self.b + self.D_B * laplacian(self.b)
+                self.b += dt * db
 
             self.a += dt * da
-            self.b += dt * db
+
             self.rho += dt * drho
 
             if LOGGING and self.timestep % 10000 == 0:
@@ -228,7 +239,8 @@ class Simulator:
             self.ua[self.ua < 0] = 0
             self.ur[self.ur < 0] = 0
             self.a[self.a < 0] = 0
-            self.b[self.b < 0] = 0
+            if not self.equal_a_and_b:
+                self.b[self.b < 0] = 0
 
 
 
