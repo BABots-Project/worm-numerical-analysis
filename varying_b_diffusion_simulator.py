@@ -80,6 +80,7 @@ class Simulator:
         self.directory = ""
         self.t = 0
         self.timestep = 0
+        self.logging_interval = 10000
 
     def create_directory(self):
         if self.D_B > 0:
@@ -178,13 +179,9 @@ class Simulator:
         if self.repellent:
             np.save(self.directory + "/ur_" + str(self.timestep), self.ur)
 
-    def run(self):
-        self.create_directory()
-        self.initial_conditions()
-        self.save_parameters()
+    def solve(self):
         success = False
         pbar = tqdm(total=STEP_MAX)
-        print("Starting simulation with b_start_y = " + str(self.b_start_y) + " and D_B = " + str(self.D_B))
         while self.timestep < STEP_MAX and not success:
             gradient_x_rho = gradientX(self.rho)
             gradient_y_rho = gradientY(self.rho)
@@ -221,7 +218,7 @@ class Simulator:
 
             self.rho += dt * drho
 
-            if LOGGING and self.timestep % 10000 == 0:
+            if LOGGING and self.timestep % self.logging_interval == 0:
                 self.log_data()
 
             self.t += dt
@@ -234,15 +231,13 @@ class Simulator:
                 success = False
                 break
 
-            #force rho, ua, ur, a and b to be positive
+            # force rho, ua, ur, a and b to be positive
             self.rho[self.rho < 0] = 0
             self.ua[self.ua < 0] = 0
             self.ur[self.ur < 0] = 0
             self.a[self.a < 0] = 0
             if not self.equal_a_and_b:
                 self.b[self.b < 0] = 0
-
-
 
             pbar.update(1)
 
@@ -255,3 +250,48 @@ class Simulator:
             show(self.rho, self.directory)
 
         pbar.close()
+
+
+    def run(self):
+        self.create_directory()
+        print("Starting simulation with b_start_y = " + str(self.b_start_y) + " and D_B = " + str(self.D_B))
+        #check if the directory exists and if it contains files. Then, if it does and the last file in terms of step number is less than STEP_MAX, continue from there. Use rho as the last file to check.
+        #otherwise start from the beginning.
+        if os.path.isdir(self.directory):
+            print("found directory: " + self.directory)
+            files = os.listdir(self.directory)
+            if len(files) > 0:
+                #filter out the files that are not rho files.
+                files = [f for f in files if "rho" in f]
+                #files are named like "rho_step.npy", so take the max step number from the files.
+                last_file = max(files, key=lambda x: int(x.split("_")[-1].split(".")[0]))
+                print("last file: " + last_file)
+                if "rho" in last_file:
+                    rho = np.load(self.directory + "/" + last_file)
+                    a = np.load(self.directory + "/a_" + last_file.split("_")[-1])
+                    if not self.equal_a_and_b:
+                        b = np.load(self.directory + "/b_" + last_file.split("_")[-1])
+                    else:
+                        b = np.zeros((N, N))
+                    ua = np.load(self.directory + "/ua_" + last_file.split("_")[-1])
+                    ur = np.load(self.directory + "/ur_" + last_file.split("_")[-1])
+                    timestep = int(last_file.split("_")[-1].split(".")[0])
+                    if timestep < STEP_MAX:
+                        print("Continuing simulation from timestep " + str(timestep))
+                        self.continue_run(rho, a, b, ua, ur, timestep)
+                        return
+                    elif timestep == STEP_MAX:
+                        print("Simulation already finished.")
+                        return
+        self.initial_conditions()
+        self.save_parameters()
+        self.solve()
+
+    def continue_run(self, rho, a, b, ua, ur, timestep):
+        self.rho = rho
+        self.a = a
+        self.b = b
+        self.ua = ua
+        self.ur = ur
+        self.timestep = timestep
+        self.solve()

@@ -762,12 +762,12 @@ def get_density_in_A_and_B():
     b_starts = list(range(20, 256, 20))
     # convert b_starts to a list of distances from the center
     ys = [round(((b_start - 256) ** 2 + (300 - 256) ** 2) ** (1 / 2), 2) for b_start in b_starts]
-    x_text = r'odor diffusion ($D\times 10^9$)'
+    x_text = r'B odor diffusion ($D_B\times 10^9$)'
     y_text = 'distance of B'
     #plot_matrix_scatter((point_matrix_A, point_matrix_B), 0.7, x_text, y_text, xs, ys)
-    plot_phase_separation(point_matrix_A, point_matrix_B, 0.7, x_text, y_text, xs, ys)
+    plot_phase_separation(point_matrix_A, point_matrix_B, 0.7, x_text, y_text, xs, ys, 3.1608807296354777)
 
-def plot_phase_separation(matrix_A, matrix_B, theta, x_text, y_text, xs, ys):
+def plot_phase_separation(matrix_A, matrix_B, theta, x_text, y_text, xs, ys, D=-1.0):
     """
     Plots a phase separation diagram of the matrix values with regions colored
     based on a threshold, and adds a legend indicating the decision associated with each region.
@@ -794,16 +794,37 @@ def plot_phase_separation(matrix_A, matrix_B, theta, x_text, y_text, xs, ys):
 
     # Create a new figure
     plt.figure(figsize=(8, 6))
-
+    blue = '#86BBD8'
+    red = '#619B8A'
+    yellow = '#F6AE2D'
     # Fill regions with different colors
-    plt.contourf(x, y, region_a, levels=[0, 0.5, 1], colors=['none', 'blue'], alpha=0.3)
-    plt.contourf(x, y, region_b, levels=[0, 0.5, 1], colors=['none', 'red'], alpha=0.3)
-    plt.contourf(x, y, region_c, levels=[0, 0.5, 1], colors=['none', 'yellow'], alpha=0.5)
+    plt.contourf(x, y, region_a, levels=[0, 0.5, 1], colors=['none', blue], alpha=0.8)
+    plt.contourf(x, y, region_b, levels=[0, 0.5, 1], colors=['none', red])#, alpha=0.3)
+    plt.contourf(x, y, region_c, levels=[0, 0.5, 1], colors=['none', yellow])#, alpha=0.5)
 
     # Overlay contour lines for clarity
-    plt.contour(x, y, region_a, levels=[0.5], colors='blue', linestyles='--')
-    plt.contour(x, y, region_b, levels=[0.5], colors='red', linestyles='--')
-    plt.contour(x, y, region_c, levels=[0.5], colors='yellow', linestyles='--')
+    plt.contour(x, y, region_a, levels=[0.5], colors=blue, linestyles='--')
+    plt.contour(x, y, region_b, levels=[0.5], colors=red, linestyles='--')
+    plt.contour(x, y, region_c, levels=[0.5], colors=yellow, linestyles='--')
+    print(xs)
+    # Add a vertical line if D is positive
+    if D >= 0:
+        # Find the two closest values in xs that bracket D
+        lower_index = max(i for i, x_val in enumerate(xs) if x_val <= D)
+        upper_index = min(i for i, x_val in enumerate(xs) if x_val >= D)
+
+        # Calculate the proportional position
+        lower_value = xs[lower_index]
+        upper_value = xs[upper_index]
+
+        # Proportional position within the segment
+        proportion = (D - lower_value) / (upper_value - lower_value)
+        x_pos = lower_index + proportion
+
+        # Draw the vertical line
+        plt.axvline(x=x_pos, color='black', linestyle='-', linewidth=2)
+        plt.text(x_pos + 0.1, rows / 2, r'$D_A$', fontsize=14, color='black',
+                 verticalalignment='center', horizontalalignment='left')
 
     # Add labels and title
     ax = plt.gca()
@@ -823,9 +844,9 @@ def plot_phase_separation(matrix_A, matrix_B, theta, x_text, y_text, xs, ys):
 
     # Add legend with larger text and place it on top
     handles = [
-        plt.Line2D([0], [0], color='blue', lw=4, label='decision for A'),
-        plt.Line2D([0], [0], color='red', lw=4, label='decision for B'),
-        plt.Line2D([0], [0], color='yellow', lw=4, label='deadlock')
+        plt.Line2D([0], [0], color=blue, lw=4, label='decision for A'),
+        plt.Line2D([0], [0], color=red, lw=4, label='decision for B'),
+        plt.Line2D([0], [0], color=yellow, lw=4, label='deadlock')
     ]
     plt.legend(handles=handles, loc='upper right', bbox_to_anchor=(0.5, 1.15),
                title='Regions', fontsize=12, title_fontsize=14, ncol=3)
@@ -839,7 +860,7 @@ def plot_phase_separation(matrix_A, matrix_B, theta, x_text, y_text, xs, ys):
 
 if __name__ == "__main__":
     #evalute_two_spots_diffusion(int(sys.argv[1]))
-    #get_density_in_A_and_B()
+    get_density_in_A_and_B()
     #plot_generic_heatmap(np.load("../decision_making/2spots_only_odor/b_start_132/D_1e-09/rho_499999.npy"), [], [], "", "", "", lognorm=False)
 
     #plot_heatmap_deadlock()

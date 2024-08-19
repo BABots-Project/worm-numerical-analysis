@@ -81,7 +81,8 @@ min_d = 1.12*10**-9
 delta_d = (max_d - min_d) / 10
 d_list = list(np.arange(min_d, max_d, delta_d))
 simulators = []
-
+#0b_starts = [132]
+#d_list = [d_list[1]]
 #parameter_file = PARAMETERS_FILE
 for b_start in b_starts:
     for D_B in d_list:
